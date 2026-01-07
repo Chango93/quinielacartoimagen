@@ -148,6 +148,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          competition_type: Database["public"]["Enums"]["competition_type"]
           created_at: string
           display_name: string | null
           email: string
@@ -156,6 +157,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          competition_type?: Database["public"]["Enums"]["competition_type"]
           created_at?: string
           display_name?: string | null
           email: string
@@ -164,6 +166,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          competition_type?: Database["public"]["Enums"]["competition_type"]
           created_at?: string
           display_name?: string | null
           email?: string
@@ -232,10 +235,39 @@ export type Database = {
       get_leaderboard: {
         Args: never
         Returns: {
+          competition_type: Database["public"]["Enums"]["competition_type"]
           display_name: string
           exact_results: number
           total_points: number
           total_predictions: number
+          user_id: string
+        }[]
+      }
+      get_matchday_leaderboard: {
+        Args: { p_matchday_id: string }
+        Returns: {
+          competition_type: Database["public"]["Enums"]["competition_type"]
+          display_name: string
+          exact_results: number
+          total_points: number
+          total_predictions: number
+          user_id: string
+        }[]
+      }
+      get_matchday_predictions: {
+        Args: { p_matchday_id: string }
+        Returns: {
+          away_score: number
+          away_team_name: string
+          display_name: string
+          home_score: number
+          home_team_name: string
+          is_finished: boolean
+          match_id: string
+          points_awarded: number
+          predicted_away_score: number
+          predicted_home_score: number
+          prediction_id: string
           user_id: string
         }[]
       }
@@ -253,6 +285,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      competition_type: "weekly" | "season" | "both"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -381,6 +414,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      competition_type: ["weekly", "season", "both"],
     },
   },
 } as const
