@@ -220,7 +220,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      profiles_public: {
+        Row: {
+          competition_type:
+            | Database["public"]["Enums"]["competition_type"]
+            | null
+          created_at: string | null
+          display_name: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          competition_type?:
+            | Database["public"]["Enums"]["competition_type"]
+            | null
+          created_at?: string | null
+          display_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          competition_type?:
+            | Database["public"]["Enums"]["competition_type"]
+            | null
+          created_at?: string | null
+          display_name?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_prediction_points: {
