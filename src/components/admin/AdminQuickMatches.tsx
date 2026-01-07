@@ -89,7 +89,10 @@ export default function AdminQuickMatches() {
   };
 
   const downloadTemplate = () => {
-    const template = 'local,visitante,fecha\nAmerica,Chivas,2025-01-15\nCruz Azul,Pumas,2025-01-16';
+    // Usar los primeros 2 equipos reales como ejemplo
+    const team1 = teams[0]?.name || 'Equipo1';
+    const team2 = teams[1]?.name || 'Equipo2';
+    const template = `local,visitante,fecha\n${team1},${team2},2025-01-15`;
     const blob = new Blob([template], { type: 'text/csv' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -179,6 +182,23 @@ export default function AdminQuickMatches() {
           <Upload className="w-4 h-4 mr-2" />Importar CSV
         </Button>
       </div>
+
+      {/* Referencia de nombres de equipos */}
+      <details className="bg-muted/30 rounded-lg p-4">
+        <summary className="cursor-pointer text-sm font-medium text-foreground hover:text-secondary">
+          📋 Ver nombres exactos de equipos para CSV
+        </summary>
+        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-sm">
+          {teams.map(t => (
+            <div key={t.id} className="bg-background/50 px-2 py-1 rounded text-muted-foreground">
+              {t.name}
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Usa estos nombres exactos en el CSV. También puedes usar el nombre corto: {teams.slice(0, 3).map(t => t.short_name).join(', ')}...
+        </p>
+      </details>
 
       <div className="rounded-lg border border-border overflow-hidden">
         <Table>
