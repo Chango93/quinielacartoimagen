@@ -10,7 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap } from 'lucide-react';
+import AdminPredictions from '@/components/admin/AdminPredictions';
+import AdminUsers from '@/components/admin/AdminUsers';
+import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
 interface Matchday { id: string; name: string; start_date: string; is_open: boolean; }
@@ -230,11 +233,14 @@ export default function Admin() {
       </div>
 
       <Tabs defaultValue="matchdays" className="space-y-6">
-        <TabsList className="bg-muted">
+        <TabsList className="bg-muted flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="matchdays"><Calendar className="w-4 h-4 mr-2" />Jornadas</TabsTrigger>
           <TabsTrigger value="matches"><Trophy className="w-4 h-4 mr-2" />Partidos</TabsTrigger>
+          <TabsTrigger value="quick-matches"><Zap className="w-4 h-4 mr-2" />Carga Rápida</TabsTrigger>
           <TabsTrigger value="results"><RefreshCw className="w-4 h-4 mr-2" />Resultados</TabsTrigger>
           <TabsTrigger value="teams"><Shield className="w-4 h-4 mr-2" />Equipos</TabsTrigger>
+          <TabsTrigger value="predictions"><FileText className="w-4 h-4 mr-2" />Predicciones</TabsTrigger>
+          <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Usuarios</TabsTrigger>
         </TabsList>
 
         {/* JORNADAS */}
@@ -416,6 +422,21 @@ export default function Admin() {
               </div>
             ))}
           </div>
+        </TabsContent>
+
+        {/* CARGA RÁPIDA */}
+        <TabsContent value="quick-matches" className="card-sports p-6">
+          <AdminQuickMatches />
+        </TabsContent>
+
+        {/* PREDICCIONES */}
+        <TabsContent value="predictions" className="card-sports p-6">
+          <AdminPredictions />
+        </TabsContent>
+
+        {/* USUARIOS */}
+        <TabsContent value="users" className="card-sports p-6">
+          <AdminUsers />
         </TabsContent>
       </Tabs>
     </div>
