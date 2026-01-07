@@ -2,95 +2,104 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap');
+
+/* Liga MX Quiniela Design System - Estilo futbolero profesional */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Colores principales - Verde Liga MX */
+    --background: 160 20% 8%;
+    --foreground: 45 30% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 160 15% 12%;
+    --card-foreground: 45 30% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 160 15% 10%;
+    --popover-foreground: 45 30% 96%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Verde principal */
+    --primary: 150 60% 35%;
+    --primary-foreground: 45 30% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Dorado para acentos y posiciones */
+    --secondary: 42 85% 55%;
+    --secondary-foreground: 160 20% 8%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 160 10% 18%;
+    --muted-foreground: 160 10% 60%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Dorado para acciones importantes */
+    --accent: 42 90% 50%;
+    --accent-foreground: 160 20% 8%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 45 30% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 160 15% 20%;
+    --input: 160 15% 15%;
+    --ring: 150 60% 35%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    /* Colores especiales para puntos */
+    --points-exact: 42 90% 50%;
+    --points-partial: 150 60% 45%;
+    --points-none: 0 0% 40%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    /* Posiciones */
+    --gold: 42 90% 55%;
+    --silver: 0 0% 70%;
+    --bronze: 25 60% 45%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    /* Gradientes */
+    --gradient-hero: linear-gradient(135deg, hsl(160 20% 8%) 0%, hsl(160 25% 15%) 50%, hsl(150 30% 20%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(160 15% 14%) 0%, hsl(160 15% 10%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(42 85% 45%) 0%, hsl(42 90% 60%) 50%, hsl(42 85% 45%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(150 60% 30%) 0%, hsl(150 70% 40%) 100%);
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    /* Sombras */
+    --shadow-card: 0 4px 24px -4px hsla(160, 50%, 5%, 0.5);
+    --shadow-glow: 0 0 30px -5px hsla(150, 60%, 35%, 0.3);
 
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 160 20% 10%;
+    --sidebar-foreground: 45 30% 96%;
+    --sidebar-primary: 150 60% 35%;
+    --sidebar-primary-foreground: 45 30% 98%;
+    --sidebar-accent: 160 15% 18%;
+    --sidebar-accent-foreground: 45 30% 96%;
+    --sidebar-border: 160 15% 20%;
+    --sidebar-ring: 150 60% 35%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
+    --background: 160 20% 8%;
+    --foreground: 45 30% 96%;
+    --card: 160 15% 12%;
+    --card-foreground: 45 30% 96%;
+    --popover: 160 15% 10%;
+    --popover-foreground: 45 30% 96%;
+    --primary: 150 60% 35%;
+    --primary-foreground: 45 30% 98%;
+    --secondary: 42 85% 55%;
+    --secondary-foreground: 160 20% 8%;
+    --muted: 160 10% 18%;
+    --muted-foreground: 160 10% 60%;
+    --accent: 42 90% 50%;
+    --accent-foreground: 160 20% 8%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --destructive-foreground: 45 30% 98%;
+    --border: 160 15% 20%;
+    --input: 160 15% 15%;
+    --ring: 150 60% 35%;
+    --sidebar-background: 160 20% 10%;
+    --sidebar-foreground: 45 30% 96%;
+    --sidebar-primary: 150 60% 35%;
+    --sidebar-primary-foreground: 45 30% 98%;
+    --sidebar-accent: 160 15% 18%;
+    --sidebar-accent-foreground: 45 30% 96%;
+    --sidebar-border: 160 15% 20%;
+    --sidebar-ring: 150 60% 35%;
   }
 }
 
@@ -100,6 +109,153 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+    background: var(--gradient-hero);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer components {
+  .card-sports {
+    @apply bg-card rounded-xl border border-border;
+    background: var(--gradient-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .position-badge {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-full font-display text-lg font-bold;
+  }
+
+  .position-1 {
+    background: var(--gradient-gold);
+    @apply text-secondary-foreground;
+  }
+
+  .position-2 {
+    @apply bg-[hsl(var(--silver))] text-secondary-foreground;
+  }
+
+  .position-3 {
+    @apply bg-[hsl(var(--bronze))] text-secondary-foreground;
+  }
+
+  .points-exact {
+    @apply bg-[hsl(var(--points-exact))] text-secondary-foreground;
+  }
+
+  .points-partial {
+    @apply bg-[hsl(var(--points-partial))] text-primary-foreground;
+  }
+
+  .points-none {
+    @apply bg-[hsl(var(--points-none))] text-foreground;
+  }
+
+  .btn-hero {
+    background: var(--gradient-primary);
+    @apply text-primary-foreground font-semibold px-6 py-3 rounded-lg transition-all duration-300;
+    box-shadow: 0 4px 14px -3px hsla(150, 60%, 35%, 0.4);
+  }
+
+  .btn-hero:hover {
+    @apply scale-105;
+    box-shadow: 0 6px 20px -3px hsla(150, 60%, 35%, 0.5);
+  }
+
+  .btn-gold {
+    background: var(--gradient-gold);
+    @apply text-secondary-foreground font-bold px-6 py-3 rounded-lg transition-all duration-300;
+  }
+
+  .btn-gold:hover {
+    @apply scale-105;
+  }
+
+  .input-sports {
+    @apply bg-input border-border text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+
+  .table-header {
+    @apply bg-muted/50 text-muted-foreground uppercase text-xs tracking-wider font-semibold;
+  }
+
+  .matchday-open {
+    @apply bg-primary/20 border-primary text-primary;
+  }
+
+  .matchday-closed {
+    @apply bg-muted/20 border-muted-foreground text-muted-foreground;
+  }
+
+  .score-input {
+    @apply w-14 h-14 text-center text-2xl font-display bg-input border-2 border-border rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all;
+  }
+
+  .match-card {
+    @apply bg-card/50 backdrop-blur-sm rounded-xl border border-border p-4 transition-all duration-300;
+  }
+
+  .match-card:hover {
+    @apply border-primary/50;
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-text {
+    text-shadow: 0 0 20px hsla(42, 90%, 50%, 0.5);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Bebas Neue', sans-serif;
+  }
+
+  .font-sans {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out forwards;
+  }
+
+  .animate-pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px -5px hsla(150, 60%, 35%, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px -5px hsla(150, 60%, 35%, 0.5);
   }
 }
