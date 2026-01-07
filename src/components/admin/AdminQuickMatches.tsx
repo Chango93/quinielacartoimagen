@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Trash2, Upload, Download, Loader2, Calendar } from 'lucide-react';
 
-interface Team { id: string; name: string; short_name: string; }
+interface Team { id: string; name: string; short_name: string; logo_url: string | null; }
 interface Matchday { id: string; name: string; }
 
 interface MatchRow {
@@ -33,7 +33,7 @@ export default function AdminQuickMatches() {
 
   const fetchData = async () => {
     const [teamsRes, matchdaysRes] = await Promise.all([
-      supabase.from('teams').select('id, name, short_name').order('name'),
+      supabase.from('teams').select('id, name, short_name, logo_url').order('name'),
       supabase.from('matchdays').select('id, name').order('start_date', { ascending: false })
     ]);
     
@@ -219,7 +219,14 @@ export default function AdminQuickMatches() {
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border z-50 max-h-60">
-                      {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                      {teams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <span className="flex items-center gap-2">
+                            {t.logo_url && <img src={t.logo_url} alt="" className="w-5 h-5 object-contain" />}
+                            {t.name}
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </TableCell>
@@ -229,7 +236,14 @@ export default function AdminQuickMatches() {
                       <SelectValue placeholder="Seleccionar..." />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border z-50 max-h-60">
-                      {teams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                      {teams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>
+                          <span className="flex items-center gap-2">
+                            {t.logo_url && <img src={t.logo_url} alt="" className="w-5 h-5 object-contain" />}
+                            {t.name}
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </TableCell>
