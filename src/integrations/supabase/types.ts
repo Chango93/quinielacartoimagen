@@ -233,7 +233,6 @@ export type Database = {
         Args: never
         Returns: {
           display_name: string
-          email: string
           exact_results: number
           total_points: number
           total_predictions: number

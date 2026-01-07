@@ -6,7 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface LeaderboardEntry {
   user_id: string;
   display_name: string;
-  email: string;
   total_points: number;
   exact_results: number;
   total_predictions: number;
@@ -93,7 +92,7 @@ export default function Leaderboard({ limit, showTitle = true }: LeaderboardProp
               {/* Nombre */}
               <div>
                 <p className="font-semibold text-foreground">
-                  {entry.display_name || entry.email.split('@')[0]}
+                  {entry.display_name}
                 </p>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
