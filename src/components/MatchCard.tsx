@@ -119,13 +119,22 @@ export default function MatchCard({
       {/* Equipos y marcadores */}
       <div className="flex items-center justify-between gap-4">
         {/* Equipo local */}
-        <div className="flex-1 text-right">
-          <p className="font-semibold text-foreground truncate" title={match.home_team.name}>
-            {match.home_team.short_name}
-          </p>
-          <p className="text-xs text-muted-foreground hidden sm:block">
-            {match.home_team.name}
-          </p>
+        <div className="flex-1 flex items-center justify-end gap-2">
+          <div className="text-right">
+            <p className="font-semibold text-foreground truncate" title={match.home_team.name}>
+              {match.home_team.short_name}
+            </p>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {match.home_team.name}
+            </p>
+          </div>
+          {match.home_team.logo_url && (
+            <img 
+              src={match.home_team.logo_url} 
+              alt={match.home_team.name} 
+              className="w-10 h-10 object-contain"
+            />
+          )}
         </div>
 
         {/* Marcadores */}
@@ -166,13 +175,22 @@ export default function MatchCard({
         </div>
 
         {/* Equipo visitante */}
-        <div className="flex-1 text-left">
-          <p className="font-semibold text-foreground truncate" title={match.away_team.name}>
-            {match.away_team.short_name}
-          </p>
-          <p className="text-xs text-muted-foreground hidden sm:block">
-            {match.away_team.name}
-          </p>
+        <div className="flex-1 flex items-center gap-2">
+          {match.away_team.logo_url && (
+            <img 
+              src={match.away_team.logo_url} 
+              alt={match.away_team.name} 
+              className="w-10 h-10 object-contain"
+            />
+          )}
+          <div className="text-left">
+            <p className="font-semibold text-foreground truncate" title={match.away_team.name}>
+              {match.away_team.short_name}
+            </p>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {match.away_team.name}
+            </p>
+          </div>
         </div>
       </div>
 
