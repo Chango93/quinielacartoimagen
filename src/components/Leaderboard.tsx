@@ -72,7 +72,9 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
     const { data, error } = await supabase.rpc('get_matchday_leaderboard', { p_matchday_id: selectedMatchday });
     
     if (!error && data) {
-      const limitedData = limit ? (data as LeaderboardEntry[]).slice(0, limit) : (data as LeaderboardEntry[]);
+      // Solo mostrar usuarios que hicieron predicciones en esta jornada
+      const withPredictions = (data as LeaderboardEntry[]).filter(e => e.total_predictions > 0);
+      const limitedData = limit ? withPredictions.slice(0, limit) : withPredictions;
       setMatchdayEntries(limitedData);
     }
   };
