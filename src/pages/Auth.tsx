@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { getSafeErrorMessage } from '@/lib/errorUtils';
 import { Trophy, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -62,19 +63,12 @@ export default function Auth() {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast({
-              title: 'Error de acceso',
-              description: 'Correo o contraseña incorrectos',
-              variant: 'destructive',
-            });
-          } else {
-            toast({
-              title: 'Error',
-              description: error.message,
-              variant: 'destructive',
-            });
-          }
+          console.error('Auth error:', error);
+          toast({
+            title: 'Error de acceso',
+            description: getSafeErrorMessage(error),
+            variant: 'destructive',
+          });
         } else {
           toast({
             title: '¡Bienvenido!',
@@ -85,19 +79,12 @@ export default function Auth() {
       } else {
         const { error } = await signUp(email, password, displayName);
         if (error) {
-          if (error.message.includes('already registered')) {
-            toast({
-              title: 'Usuario existente',
-              description: 'Este correo ya está registrado. Intenta iniciar sesión.',
-              variant: 'destructive',
-            });
-          } else {
-            toast({
-              title: 'Error',
-              description: error.message,
-              variant: 'destructive',
-            });
-          }
+          console.error('Auth error:', error);
+          toast({
+            title: 'Error de registro',
+            description: getSafeErrorMessage(error),
+            variant: 'destructive',
+          });
         } else {
           toast({
             title: '¡Cuenta creada!',
