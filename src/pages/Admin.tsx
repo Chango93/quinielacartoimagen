@@ -111,8 +111,10 @@ export default function Admin() {
   // === PARTIDOS ===
   const addMatch = async () => {
     if (!newHomeTeam || !newAwayTeam || !newMatchDate || !selectedMatchday) return;
+    // Convertir datetime-local a ISO con timezone local
+    const matchDateISO = new Date(newMatchDate).toISOString();
     const { error } = await supabase.from('matches').insert({
-      matchday_id: selectedMatchday, home_team_id: newHomeTeam, away_team_id: newAwayTeam, match_date: newMatchDate
+      matchday_id: selectedMatchday, home_team_id: newHomeTeam, away_team_id: newAwayTeam, match_date: matchDateISO
     });
     if (error) {
       console.error('Database error:', error);
@@ -123,10 +125,12 @@ export default function Admin() {
 
   const updateMatch = async () => {
     if (!editingMatch) return;
+    // Convertir datetime-local a ISO con timezone local
+    const matchDateISO = new Date(editingMatch.match_date).toISOString();
     const { error } = await supabase.from('matches').update({
       home_team_id: editingMatch.home_team_id,
       away_team_id: editingMatch.away_team_id,
-      match_date: editingMatch.match_date
+      match_date: matchDateISO
     }).eq('id', editingMatch.id);
     if (error) {
       console.error('Database error:', error);
@@ -293,7 +297,7 @@ export default function Admin() {
                           <SelectTrigger className="bg-input border-border"><SelectValue placeholder="Visitante" /></SelectTrigger>
                           <SelectContent className="bg-popover border-border z-50 max-h-60">{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.short_name}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Input type="datetime-local" value={editingMatch?.match_date?.slice(0,16) || ''} onChange={e => setEditingMatch(prev => prev ? {...prev, match_date: e.target.value} : null)} className="input-sports" />
+                        <Input type="datetime-local" value={editingMatch ? new Date(editingMatch.match_date).toISOString().slice(0,16) : ''} onChange={e => setEditingMatch(prev => prev ? {...prev, match_date: e.target.value} : null)} className="input-sports" />
                         <Button onClick={updateMatch} className="w-full btn-hero">Guardar</Button>
                       </div>
                     </DialogContent>
