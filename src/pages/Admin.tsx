@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getSafeErrorMessage } from '@/lib/errorUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -75,21 +76,30 @@ export default function Admin() {
   const createMatchday = async () => {
     if (!newMatchdayName) return;
     const { error } = await supabase.from('matchdays').insert({ name: newMatchdayName, start_date: new Date().toISOString() });
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Jornada creada' }); setNewMatchdayName(''); fetchMatchdays(); }
   };
 
   const updateMatchday = async () => {
     if (!editingMatchday) return;
     const { error } = await supabase.from('matchdays').update({ name: editingMatchday.name }).eq('id', editingMatchday.id);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Jornada actualizada' }); setEditingMatchday(null); fetchMatchdays(); }
   };
 
   const deleteMatchday = async (id: string) => {
     if (!confirm('¿Eliminar esta jornada y todos sus partidos?')) return;
     const { error } = await supabase.from('matchdays').delete().eq('id', id);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Jornada eliminada' }); fetchMatchdays(); }
   };
 
@@ -104,7 +114,10 @@ export default function Admin() {
     const { error } = await supabase.from('matches').insert({
       matchday_id: selectedMatchday, home_team_id: newHomeTeam, away_team_id: newAwayTeam, match_date: newMatchDate
     });
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Partido agregado' }); setNewHomeTeam(''); setNewAwayTeam(''); setNewMatchDate(''); fetchMatches(); }
   };
 
@@ -115,14 +128,20 @@ export default function Admin() {
       away_team_id: editingMatch.away_team_id,
       match_date: editingMatch.match_date
     }).eq('id', editingMatch.id);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Partido actualizado' }); setEditingMatch(null); fetchMatches(); }
   };
 
   const deleteMatch = async (id: string) => {
     if (!confirm('¿Eliminar este partido?')) return;
     const { error } = await supabase.from('matches').delete().eq('id', id);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Partido eliminado' }); fetchMatches(); }
   };
 
@@ -154,7 +173,8 @@ export default function Admin() {
       .upload(fileName, file, { upsert: true });
 
     if (uploadError) {
-      toast({ title: 'Error al subir', description: uploadError.message, variant: 'destructive' });
+      console.error('Storage error:', uploadError);
+      toast({ title: 'Error al subir', description: getSafeErrorMessage(uploadError), variant: 'destructive' });
       setUploadingLogo(false);
       return;
     }
@@ -174,7 +194,10 @@ export default function Admin() {
       name: editingTeam.name, 
       short_name: editingTeam.short_name 
     }).eq('id', editingTeam.id);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (error) {
+      console.error('Database error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
     else { toast({ title: 'Equipo actualizado' }); fetchTeams(); }
   };
 
