@@ -119,45 +119,61 @@ serve(async (req) => {
     const fixtures: ApiFixture[] = apiData.response || [];
     console.log(`Found ${fixtures.length} finished fixtures from API`);
 
-    // Team name mapping (API names to our DB names)
-    const teamNameMap: Record<string, string[]> = {
-      'Guadalajara': ['CD Guadalajara', 'Chivas', 'GDL'],
-      'Club America': ['Club América', 'América', 'AME'],
-      'Atlas': ['Club Atlas', 'Atlas', 'ATL'],
-      'Monterrey': ['CF Monterrey', 'Monterrey', 'MTY'],
-      'Tigres UANL': ['Club Tigres', 'Tigres', 'TIG'],
-      'Cruz Azul': ['Cruz Azul', 'CRU'],
-      'Pumas UNAM': ['Club Universidad', 'Pumas', 'PUM'],
-      'Pachuca': ['CF Pachuca', 'Pachuca', 'PAC'],
-      'Toluca': ['Deportivo Toluca', 'Toluca', 'TOL'],
-      'Santos Laguna': ['Club Santos Laguna', 'Santos', 'SAN'],
-      'Leon': ['Club León', 'León', 'LEO'],
-      'Necaxa': ['Club Necaxa', 'Necaxa', 'NEC'],
-      'Atletico San Luis': ['Atlético San Luis', 'San Luis', 'ASL'],
-      'Queretaro': ['Club Querétaro', 'Querétaro', 'QRO'],
-      'Puebla': ['Club Puebla', 'Puebla', 'PUE'],
-      'Tijuana': ['Club Tijuana', 'Xolos', 'TIJ'],
-      'Mazatlan FC': ['Mazatlán FC', 'Mazatlán', 'MAZ'],
-      'Juarez': ['FC Juárez', 'Juárez', 'JUA']
+    // Team name mapping (API-Football names -> DB names based on actual database)
+    // DB teams: Atlético San Luis, CD Guadalajara, CF Monterrey, CF Pachuca, Club América,
+    // Club Atlas, Club León, Club Necaxa, Club Puebla, Club Santos Laguna, Club Tijuana,
+    // Cruz Azul, Deportivo Toluca, FC Juárez, Mazatlán FC, Pumas UNAM, Querétaro FC, Tigres UANL
+    const teamNameMap: Record<string, string> = {
+      'guadalajara': 'CD Guadalajara',
+      'chivas': 'CD Guadalajara',
+      'america': 'Club América',
+      'club america': 'Club América',
+      'atlas': 'Club Atlas',
+      'monterrey': 'CF Monterrey',
+      'tigres': 'Tigres UANL',
+      'tigres uanl': 'Tigres UANL',
+      'cruz azul': 'Cruz Azul',
+      'pumas': 'Pumas UNAM',
+      'pumas unam': 'Pumas UNAM',
+      'pachuca': 'CF Pachuca',
+      'toluca': 'Deportivo Toluca',
+      'santos laguna': 'Club Santos Laguna',
+      'santos': 'Club Santos Laguna',
+      'leon': 'Club León',
+      'necaxa': 'Club Necaxa',
+      'atletico san luis': 'Atlético San Luis',
+      'san luis': 'Atlético San Luis',
+      'queretaro': 'Querétaro FC',
+      'puebla': 'Club Puebla',
+      'tijuana': 'Club Tijuana',
+      'xolos': 'Club Tijuana',
+      'mazatlan': 'Mazatlán FC',
+      'mazatlan fc': 'Mazatlán FC',
+      'juarez': 'FC Juárez',
+      'fc juarez': 'FC Juárez'
     };
 
-    const normalizeTeamName = (apiName: string): string[] => {
-      for (const [apiKey, dbNames] of Object.entries(teamNameMap)) {
-        if (apiName.toLowerCase().includes(apiKey.toLowerCase()) || 
-            apiKey.toLowerCase().includes(apiName.toLowerCase())) {
-          return dbNames;
+    const normalizeApiName = (apiName: string): string | null => {
+      const lower = apiName.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // Remove accents
+      
+      for (const [apiKey, dbName] of Object.entries(teamNameMap)) {
+        if (lower.includes(apiKey) || apiKey.includes(lower)) {
+          return dbName;
         }
       }
-      return [apiName];
+      return null;
     };
 
     const matchTeam = (apiTeam: string, dbTeam: { name: string; short_name: string }): boolean => {
-      const possibleNames = normalizeTeamName(apiTeam);
-      return possibleNames.some(name => 
-        dbTeam.name.toLowerCase().includes(name.toLowerCase()) ||
-        name.toLowerCase().includes(dbTeam.name.toLowerCase()) ||
-        dbTeam.short_name.toLowerCase() === name.toLowerCase()
-      );
+      const normalizedName = normalizeApiName(apiTeam);
+      if (normalizedName) {
+        return dbTeam.name === normalizedName;
+      }
+      // Fallback: direct comparison
+      const apiLower = apiTeam.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const dbLower = dbTeam.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return apiLower.includes(dbLower) || dbLower.includes(apiLower);
     };
 
     let updated = 0;
