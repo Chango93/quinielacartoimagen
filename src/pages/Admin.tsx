@@ -42,6 +42,21 @@ export default function Admin() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
+  // Helper para formatear fecha de forma segura para datetime-local input
+  const formatDateForInput = (dateString: string | undefined): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      // Ajustar a timezone local para el input
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - offset * 60 * 1000);
+      return localDate.toISOString().slice(0, 16);
+    } catch {
+      return '';
+    }
+  };
+
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) navigate('/');
   }, [user, isAdmin, loading, navigate]);
@@ -297,7 +312,7 @@ export default function Admin() {
                           <SelectTrigger className="bg-input border-border"><SelectValue placeholder="Visitante" /></SelectTrigger>
                           <SelectContent className="bg-popover border-border z-50 max-h-60">{teams.map(t => <SelectItem key={t.id} value={t.id}>{t.short_name}</SelectItem>)}</SelectContent>
                         </Select>
-                        <Input type="datetime-local" value={editingMatch ? new Date(editingMatch.match_date).toISOString().slice(0,16) : ''} onChange={e => setEditingMatch(prev => prev ? {...prev, match_date: e.target.value} : null)} className="input-sports" />
+                        <Input type="datetime-local" value={formatDateForInput(editingMatch?.match_date)} onChange={e => setEditingMatch(prev => prev ? {...prev, match_date: e.target.value} : null)} className="input-sports" />
                         <Button onClick={updateMatch} className="w-full btn-hero">Guardar</Button>
                       </div>
                     </DialogContent>
