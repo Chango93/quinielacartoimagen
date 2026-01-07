@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload } from 'lucide-react';
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
@@ -30,6 +30,7 @@ export default function Admin() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   // Nueva jornada
   const [newMatchdayName, setNewMatchdayName] = useState('');
@@ -184,6 +185,30 @@ export default function Admin() {
     fetchMatches();
   };
 
+  const syncWithApi = async () => {
+    if (!selectedMatchday) return;
+    setSyncing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-results`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ matchday_id: selectedMatchday })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Error al sincronizar');
+      toast({ title: 'Sincronización completada', description: result.message });
+      fetchMatches();
+    } catch (error) {
+      console.error('Sync error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
+    setSyncing(false);
+  };
+
   // === EQUIPOS ===
   const handleLogoUpload = async (teamId: string, file: File) => {
     setUploadingLogo(true);
@@ -333,10 +358,16 @@ export default function Admin() {
 
         {/* RESULTADOS */}
         <TabsContent value="results" className="card-sports p-6 space-y-4">
-          <Select value={selectedMatchday} onValueChange={setSelectedMatchday}>
-            <SelectTrigger className="bg-input border-border"><SelectValue /></SelectTrigger>
-            <SelectContent className="bg-popover border-border z-50">{matchdays.map(md => <SelectItem key={md.id} value={md.id}>{md.name}</SelectItem>)}</SelectContent>
-          </Select>
+          <div className="flex gap-2 flex-wrap">
+            <Select value={selectedMatchday} onValueChange={setSelectedMatchday}>
+              <SelectTrigger className="bg-input border-border flex-1"><SelectValue /></SelectTrigger>
+              <SelectContent className="bg-popover border-border z-50">{matchdays.map(md => <SelectItem key={md.id} value={md.id}>{md.name}</SelectItem>)}</SelectContent>
+            </Select>
+            <Button onClick={syncWithApi} disabled={syncing || !selectedMatchday} variant="outline" className="gap-2">
+              {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
+              Sincronizar API
+            </Button>
+          </div>
           <div className="space-y-3">
             {matches.map(m => (
               <div key={m.id} className="p-4 bg-muted/50 rounded-lg flex items-center justify-between gap-4">
