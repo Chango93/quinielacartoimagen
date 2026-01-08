@@ -172,6 +172,17 @@ export default function Admin() {
     setMatches(prev => prev.map(m => m.id === matchId ? { ...m, home_score: homeScore, away_score: awayScore } : m));
   };
 
+  const clearResult = async (matchId: string) => {
+    const { error } = await supabase.from('matches').update({ home_score: null, away_score: null, is_finished: false }).eq('id', matchId);
+    if (error) {
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    } else {
+      toast({ title: 'Resultado limpiado' });
+      await supabase.rpc('recalculate_matchday_points', { p_matchday_id: selectedMatchday });
+      fetchMatches();
+    }
+  };
+
   const saveResults = async () => {
     setSaving(true);
     for (const match of matches) {
@@ -382,6 +393,11 @@ export default function Admin() {
                   <span className="text-foreground">{m.away_team?.short_name}</span>
                   {m.away_team?.logo_url && <img src={m.away_team.logo_url} alt="" className="w-6 h-6 object-contain" />}
                 </div>
+                {(m.home_score !== null || m.away_score !== null) && (
+                  <Button variant="ghost" size="icon" onClick={() => clearResult(m.id)} className="text-destructive hover:text-destructive" title="Limpiar resultado">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             ))}
             {matches.length === 0 && <p className="text-center py-4 text-muted-foreground">No hay partidos en esta jornada</p>}
