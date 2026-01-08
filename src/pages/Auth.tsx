@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getSafeErrorMessage } from '@/lib/errorUtils';
-import { Trophy, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { Trophy, Mail, Lock, User, Loader2, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 
 const authSchema = z.object({
@@ -17,6 +18,7 @@ const authSchema = z.object({
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -49,6 +51,39 @@ export default function Auth() {
         setErrors(newErrors);
       }
       return false;
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) {
+      setErrors({ email: 'Ingresa tu correo electrónico' });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+      
+      if (error) {
+        toast({
+          title: 'Error',
+          description: getSafeErrorMessage(error),
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Correo enviado',
+          description: 'Revisa tu bandeja de entrada para restablecer tu contraseña',
+        });
+        setIsForgotPassword(false);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -97,6 +132,75 @@ export default function Auth() {
       setIsLoading(false);
     }
   };
+
+  // Forgot password view
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="w-full max-w-md animate-fade-in">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/20 mb-4">
+              <Mail className="w-10 h-10 text-secondary" />
+            </div>
+            <h1 className="text-3xl font-display text-foreground">
+              Recuperar contraseña
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Te enviaremos un enlace para restablecer tu contraseña
+            </p>
+          </div>
+
+          <div className="card-sports p-6">
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground">
+                  Correo electrónico
+                </Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="tu@correo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 input-sports"
+                    required
+                  />
+                </div>
+                {errors.email && (
+                  <p className="text-destructive text-sm">{errors.email}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full btn-hero"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'Enviar enlace'
+                )}
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(false)}
+                className="text-primary hover:text-primary/80 transition-colors inline-flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Volver al inicio de sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
@@ -158,9 +262,20 @@ export default function Auth() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">
-                Contraseña
-              </Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="password" className="text-foreground">
+                  Contraseña
+                </Label>
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(true)}
+                    className="text-sm text-primary hover:text-primary/80 transition-colors"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <Input
