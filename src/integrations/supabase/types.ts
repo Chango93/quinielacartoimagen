@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       matchdays: {
         Row: {
+          competition_mode: Database["public"]["Enums"]["competition_type"]
           created_at: string
           end_date: string | null
           id: string
@@ -25,6 +26,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          competition_mode?: Database["public"]["Enums"]["competition_type"]
           created_at?: string
           end_date?: string | null
           id?: string
@@ -34,6 +36,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          competition_mode?: Database["public"]["Enums"]["competition_type"]
           created_at?: string
           end_date?: string | null
           id?: string
