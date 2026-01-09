@@ -10,13 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock } from 'lucide-react';
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
-interface Matchday { id: string; name: string; start_date: string; is_open: boolean; }
+interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; }
 interface Match { id: string; matchday_id: string; home_team_id: string; away_team_id: string; match_date: string; home_score: number | null; away_score: number | null; is_finished: boolean; home_team?: Team; away_team?: Team; }
 
 export default function Admin() {
@@ -105,7 +105,13 @@ export default function Admin() {
 
   const updateMatchday = async () => {
     if (!editingMatchday) return;
-    const { error } = await supabase.from('matchdays').update({ name: editingMatchday.name }).eq('id', editingMatchday.id);
+    const updateData: { name: string; end_date?: string | null } = { name: editingMatchday.name };
+    if (editingMatchday.end_date) {
+      updateData.end_date = new Date(editingMatchday.end_date).toISOString();
+    } else {
+      updateData.end_date = null;
+    }
+    const { error } = await supabase.from('matchdays').update(updateData).eq('id', editingMatchday.id);
     if (error) {
       console.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
@@ -314,8 +320,16 @@ export default function Admin() {
           </div>
           <div className="space-y-2">
             {matchdays.map(md => (
-              <div key={md.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                <span className="font-medium text-foreground">{md.name}</span>
+              <div key={md.id} className="flex flex-col md:flex-row md:items-center justify-between p-3 bg-muted/50 rounded-lg gap-2">
+                <div className="flex flex-col">
+                  <span className="font-medium text-foreground">{md.name}</span>
+                  {md.end_date && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Cierre auto: {new Date(md.end_date).toLocaleString('es-MX')}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground">{md.is_open ? 'Abierta' : 'Cerrada'}</span>
                   <Switch checked={md.is_open} onCheckedChange={() => toggleMatchdayOpen(md.id, md.is_open)} />
@@ -325,8 +339,26 @@ export default function Admin() {
                     </DialogTrigger>
                     <DialogContent className="bg-card border-border">
                       <DialogHeader><DialogTitle className="text-foreground">Editar Jornada</DialogTitle></DialogHeader>
-                      <Input value={editingMatchday?.name || ''} onChange={e => setEditingMatchday(prev => prev ? {...prev, name: e.target.value} : null)} className="input-sports" />
-                      <Button onClick={updateMatchday} className="btn-hero">Guardar</Button>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Nombre</label>
+                          <Input value={editingMatchday?.name || ''} onChange={e => setEditingMatchday(prev => prev ? {...prev, name: e.target.value} : null)} className="input-sports" />
+                        </div>
+                        <div>
+                          <label className="text-sm text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Cierre automático (opcional)
+                          </label>
+                          <Input 
+                            type="datetime-local" 
+                            value={formatDateForInput(editingMatchday?.end_date || '')} 
+                            onChange={e => setEditingMatchday(prev => prev ? {...prev, end_date: e.target.value || null} : null)} 
+                            className="input-sports" 
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">La jornada se cerrará automáticamente a esta hora</p>
+                        </div>
+                        <Button onClick={updateMatchday} className="btn-hero w-full">Guardar</Button>
+                      </div>
                     </DialogContent>
                   </Dialog>
                   <Button variant="ghost" size="icon" onClick={() => deleteMatchday(md.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>

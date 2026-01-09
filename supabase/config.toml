@@ -2,3 +2,6 @@ project_id = "iziunaqlgkfyasxoalwl"
 
 [functions.sync-results]
 verify_jwt = false
+
+[functions.auto-close-matchdays]
+verify_jwt = false
