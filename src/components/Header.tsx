@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Trophy, LogOut, Settings, User, LayoutDashboard } from 'lucide-react';
+import { Trophy, LogOut, Settings, User, LayoutDashboard, ChevronDown, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -63,13 +63,20 @@ export default function Header() {
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary" />
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-2 border-primary/30 bg-primary/10 hover:bg-primary/20 hover:border-primary/50 transition-all px-3"
+              >
+                <div className="w-8 h-8 rounded-full bg-secondary/20 flex items-center justify-center border border-secondary/30">
+                  <User className="w-4 h-4 text-secondary" />
                 </div>
-                <span className="hidden sm:block text-foreground">
-                  {user.email?.split('@')[0]}
-                </span>
+                <div className="flex flex-col items-start">
+                  <span className="text-xs text-muted-foreground hidden sm:block">Mi cuenta</span>
+                  <span className="text-sm font-medium text-foreground hidden sm:block">
+                    {user.email?.split('@')[0]}
+                  </span>
+                </div>
+                <ChevronDown className="w-4 h-4 text-muted-foreground ml-1" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
