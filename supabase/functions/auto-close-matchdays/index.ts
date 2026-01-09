@@ -13,15 +13,52 @@ serve(async (req: Request) => {
   }
 
   try {
+    // Authentication check - require admin role
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create client with user's auth token to validate permissions
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    // Verify JWT and get claims
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claims, error: claimsError } = await supabase.auth.getClaims(token);
+    if (claimsError || !claims?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = claims.claims.sub as string;
+
+    // Check if user is admin
+    const { data: hasRole } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+    if (!hasRole) {
+      return new Response(
+        JSON.stringify({ error: "Admin access required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Now use service role key for the actual operation
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Find matchdays that should be closed (end_date has passed and is_open is true)
     const now = new Date().toISOString();
     
-    const { data: matchdaysToClose, error: fetchError } = await supabase
+    const { data: matchdaysToClose, error: fetchError } = await adminSupabase
       .from("matchdays")
       .select("id, name, end_date")
       .eq("is_open", true)
@@ -42,7 +79,7 @@ serve(async (req: Request) => {
     // Close each matchday
     const closedMatchdays: string[] = [];
     for (const matchday of matchdaysToClose) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await adminSupabase
         .from("matchdays")
         .update({ is_open: false, updated_at: now })
         .eq("id", matchday.id);
