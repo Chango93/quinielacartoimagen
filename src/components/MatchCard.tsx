@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Input } from '@/components/ui/input';
@@ -48,11 +48,15 @@ export default function MatchCard({
   const [awayScore, setAwayScore] = useState<string>(
     prediction?.predicted_away_score?.toString() ?? ''
   );
+  const [hasChanges, setHasChanges] = useState(false);
+  const homeInputRef = useRef<HTMLInputElement>(null);
+  const awayInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (prediction) {
       setHomeScore(prediction.predicted_home_score?.toString() ?? '');
       setAwayScore(prediction.predicted_away_score?.toString() ?? '');
+      setHasChanges(false);
     }
   }, [prediction]);
 
@@ -63,14 +67,18 @@ export default function MatchCard({
       setHomeScore(numValue);
       if (numValue !== '' && awayScore !== '' && onPredictionChange) {
         onPredictionChange(match.id, parseInt(numValue), parseInt(awayScore));
+        setHasChanges(true);
       }
     } else {
       setAwayScore(numValue);
       if (homeScore !== '' && numValue !== '' && onPredictionChange) {
         onPredictionChange(match.id, parseInt(homeScore), parseInt(numValue));
+        setHasChanges(true);
       }
     }
   };
+
+  const isComplete = homeScore !== '' && awayScore !== '';
 
   const getPointsBadge = () => {
     if (prediction?.points_awarded === undefined || prediction?.points_awarded === null) return null;
@@ -101,7 +109,7 @@ export default function MatchCard({
   };
 
   return (
-    <div className="match-card">
+    <div className={`match-card ${isComplete && hasChanges ? 'ring-2 ring-primary/50' : ''} ${isComplete ? 'border-primary/30' : ''}`}>
       {/* Fecha */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -112,6 +120,12 @@ export default function MatchCard({
         </div>
         {!isOpen && (
           <Lock className="w-4 h-4 text-muted-foreground" />
+        )}
+        {isOpen && isComplete && (
+          <span className="text-xs text-primary flex items-center gap-1">
+            <Check className="w-3 h-3" />
+            Listo
+          </span>
         )}
         {showResult && match.is_finished && getPointsBadge()}
       </div>
@@ -142,22 +156,24 @@ export default function MatchCard({
           {isOpen && onPredictionChange ? (
             <>
               <Input
+                ref={homeInputRef}
                 type="number"
                 min="0"
                 max="99"
                 value={homeScore}
                 onChange={(e) => handleScoreChange(true, e.target.value)}
-                className="score-input"
+                className={`score-input ${homeScore !== '' ? 'border-primary bg-primary/10' : ''}`}
                 placeholder="-"
               />
               <span className="text-muted-foreground font-bold text-xl">:</span>
               <Input
+                ref={awayInputRef}
                 type="number"
                 min="0"
                 max="99"
                 value={awayScore}
                 onChange={(e) => handleScoreChange(false, e.target.value)}
-                className="score-input"
+                className={`score-input ${awayScore !== '' ? 'border-primary bg-primary/10' : ''}`}
                 placeholder="-"
               />
             </>
