@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw } from 'lucide-react';
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
@@ -31,6 +31,7 @@ export default function Admin() {
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   // Nueva jornada
   const [newMatchdayName, setNewMatchdayName] = useState('');
@@ -125,6 +126,32 @@ export default function Admin() {
   const toggleMatchdayOpen = async (id: string, isOpen: boolean) => {
     await supabase.from('matchdays').update({ is_open: !isOpen }).eq('id', id);
     fetchMatchdays();
+  };
+
+  const resetMatchdayResults = async () => {
+    if (!selectedMatchday) return;
+    if (!confirm('¿Resetear TODOS los resultados y puntos de esta jornada? Los partidos volverán a estar sin resultado.')) return;
+    
+    setResetting(true);
+    try {
+      // Reset all matches in the matchday
+      const { error: matchError } = await supabase
+        .from('matches')
+        .update({ home_score: null, away_score: null, is_finished: false })
+        .eq('matchday_id', selectedMatchday);
+      
+      if (matchError) throw matchError;
+
+      // Reset all predictions points for this matchday
+      await supabase.rpc('recalculate_matchday_points', { p_matchday_id: selectedMatchday });
+      
+      toast({ title: 'Jornada reseteada', description: 'Resultados y puntos eliminados' });
+      fetchMatches();
+    } catch (error) {
+      console.error('Reset error:', error);
+      toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
+    }
+    setResetting(false);
   };
 
   // === PARTIDOS ===
@@ -377,6 +404,10 @@ export default function Admin() {
             <Button onClick={syncWithApi} disabled={syncing || !selectedMatchday} variant="outline" className="gap-2">
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
               Sincronizar API
+            </Button>
+            <Button onClick={resetMatchdayResults} disabled={resetting || !selectedMatchday || matches.length === 0} variant="outline" className="gap-2 text-destructive hover:text-destructive border-destructive/50">
+              {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+              Resetear Jornada
             </Button>
           </div>
           <div className="space-y-3">
