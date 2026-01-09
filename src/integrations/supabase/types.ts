@@ -255,6 +255,7 @@ export type Database = {
       }
     }
     Functions: {
+      auto_close_matchdays: { Args: never; Returns: undefined }
       calculate_prediction_points: {
         Args: {
           pred_away: number

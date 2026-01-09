@@ -318,50 +318,71 @@ export default function Admin() {
             <Input placeholder="Nombre (ej: Jornada 5)" value={newMatchdayName} onChange={e => setNewMatchdayName(e.target.value)} className="input-sports" />
             <Button onClick={createMatchday} className="btn-hero"><Plus className="w-4 h-4 mr-2" />Crear</Button>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {matchdays.map(md => (
-              <div key={md.id} className="flex flex-col md:flex-row md:items-center justify-between p-3 bg-muted/50 rounded-lg gap-2">
-                <div className="flex flex-col">
-                  <span className="font-medium text-foreground">{md.name}</span>
+              <div key={md.id} className="p-4 bg-muted/50 rounded-lg space-y-2">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                  <span className="font-medium text-foreground text-lg">{md.name}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground">{md.is_open ? 'Abierta' : 'Cerrada'}</span>
+                    <Switch checked={md.is_open} onCheckedChange={() => toggleMatchdayOpen(md.id, md.is_open)} />
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => setEditingMatchday(md)}><Pencil className="w-4 h-4" /></Button>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border">
+                        <DialogHeader><DialogTitle className="text-foreground">Editar Jornada</DialogTitle></DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-sm text-muted-foreground">Nombre</label>
+                            <Input value={editingMatchday?.name || ''} onChange={e => setEditingMatchday(prev => prev ? {...prev, name: e.target.value} : null)} className="input-sports" />
+                          </div>
+                          <Button onClick={updateMatchday} className="btn-hero w-full">Guardar</Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Button variant="ghost" size="icon" onClick={() => deleteMatchday(md.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+                
+                {/* Cierre automático - visible directamente */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="w-4 h-4" />
+                    <span>Cierre automático:</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input 
+                      type="datetime-local" 
+                      value={formatDateForInput(md.end_date || '')}
+                      onChange={async (e) => {
+                        const newEndDate = e.target.value ? new Date(e.target.value).toISOString() : null;
+                        await supabase.from('matchdays').update({ end_date: newEndDate }).eq('id', md.id);
+                        fetchMatchdays();
+                        toast({ title: newEndDate ? 'Cierre programado' : 'Cierre automático desactivado' });
+                      }}
+                      className="input-sports max-w-[250px]"
+                    />
+                    {md.end_date && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={async () => {
+                          await supabase.from('matchdays').update({ end_date: null }).eq('id', md.id);
+                          fetchMatchdays();
+                          toast({ title: 'Cierre automático desactivado' });
+                        }}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        Quitar
+                      </Button>
+                    )}
+                  </div>
                   {md.end_date && (
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Cierre auto: {new Date(md.end_date).toLocaleString('es-MX')}
+                    <span className="text-xs text-primary">
+                      Se cierra: {new Date(md.end_date).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}
                     </span>
                   )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">{md.is_open ? 'Abierta' : 'Cerrada'}</span>
-                  <Switch checked={md.is_open} onCheckedChange={() => toggleMatchdayOpen(md.id, md.is_open)} />
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => setEditingMatchday(md)}><Pencil className="w-4 h-4" /></Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-card border-border">
-                      <DialogHeader><DialogTitle className="text-foreground">Editar Jornada</DialogTitle></DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="text-sm text-muted-foreground">Nombre</label>
-                          <Input value={editingMatchday?.name || ''} onChange={e => setEditingMatchday(prev => prev ? {...prev, name: e.target.value} : null)} className="input-sports" />
-                        </div>
-                        <div>
-                          <label className="text-sm text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            Cierre automático (opcional)
-                          </label>
-                          <Input 
-                            type="datetime-local" 
-                            value={formatDateForInput(editingMatchday?.end_date || '')} 
-                            onChange={e => setEditingMatchday(prev => prev ? {...prev, end_date: e.target.value || null} : null)} 
-                            className="input-sports" 
-                          />
-                          <p className="text-xs text-muted-foreground mt-1">La jornada se cerrará automáticamente a esta hora</p>
-                        </div>
-                        <Button onClick={updateMatchday} className="btn-hero w-full">Guardar</Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMatchday(md.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                 </div>
               </div>
             ))}
