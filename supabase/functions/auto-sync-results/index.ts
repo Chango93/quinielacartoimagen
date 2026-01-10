@@ -27,7 +27,8 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Auto-sync started at', new Date().toISOString());
+    const nowUtc = new Date();
+    console.log('Auto-sync started at', nowUtc.toISOString());
 
     // Use service role key for cron jobs (no user auth)
     const supabase = createClient(
@@ -43,266 +44,254 @@ serve(async (req) => {
       });
     }
 
-    // Get all open matchdays with unfinished matches
-    const { data: openMatchdays, error: matchdaysError } = await supabase
-      .from('matchdays')
-      .select('id, name')
-      .eq('is_open', true);
+    // Get all ACTIVE matches: started (match_date <= now) but not finished
+    // This handles multiple simultaneous matches automatically
+    const { data: activeMatches, error: matchesError } = await supabase
+      .from('matches')
+      .select(`
+        id,
+        match_date,
+        matchday_id,
+        home_score,
+        away_score,
+        is_finished,
+        home_team:teams!matches_home_team_id_fkey(name, short_name),
+        away_team:teams!matches_away_team_id_fkey(name, short_name),
+        matchday:matchdays!matches_matchday_id_fkey(id, name, is_open)
+      `)
+      .eq('is_finished', false)
+      .lte('match_date', nowUtc.toISOString());
 
-    if (matchdaysError) {
-      console.error('Error fetching matchdays:', matchdaysError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch matchdays' }), { 
+    if (matchesError) {
+      console.error('Error fetching active matches:', matchesError);
+      return new Response(JSON.stringify({ error: 'Failed to fetch matches' }), { 
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
-    if (!openMatchdays || openMatchdays.length === 0) {
-      console.log('No open matchdays found');
-      return new Response(JSON.stringify({ success: true, message: 'No open matchdays to sync' }), { 
+    // Filter to only matches in open matchdays
+    const matches = (activeMatches || []).filter((m: any) => m.matchday?.is_open === true);
+
+    if (matches.length === 0) {
+      console.log('No active matches to sync (no matches started or all finished)');
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'No active matches to sync',
+        activeMatches: 0
+      }), { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
-    console.log(`Found ${openMatchdays.length} open matchdays to sync`);
+    console.log(`Found ${matches.length} active match(es) to sync`);
 
-    let totalUpdated = 0;
-    let totalNotFound = 0;
+    // Build a date window from active matches
+    const matchDateTimes = matches
+      .map((m: any) => new Date(m.match_date).getTime())
+      .filter((t: number) => Number.isFinite(t));
 
-    for (const matchday of openMatchdays) {
-      console.log(`Syncing matchday: ${matchday.name}`);
+    const minDate = new Date(Math.min(...matchDateTimes));
+    const maxDate = new Date(Math.max(...matchDateTimes));
 
-      // Get matches for this matchday with team names
-      const { data: matches, error: matchesError } = await supabase
-        .from('matches')
-        .select(`
-          id,
-          match_date,
-          home_score,
-          away_score,
-          is_finished,
-          home_team:teams!matches_home_team_id_fkey(name, short_name),
-          away_team:teams!matches_away_team_id_fkey(name, short_name)
-        `)
-        .eq('matchday_id', matchday.id)
-        .eq('is_finished', false);
+    const fromDate = new Date(minDate);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 1);
+    const toDate = new Date(maxDate);
+    toDate.setUTCDate(toDate.getUTCDate() + 1);
 
-      if (matchesError) {
-        console.error(`Error fetching matches for ${matchday.name}:`, matchesError);
-        continue;
-      }
+    const fromStr = fromDate.toISOString().slice(0, 10);
+    const toStr = toDate.toISOString().slice(0, 10);
 
-      if (!matches || matches.length === 0) {
-        console.log(`No unfinished matches in ${matchday.name}`);
-        continue;
-      }
+    const TSDB_BASE = 'https://www.thesportsdb.com/api/v2/json';
 
-      // Build a date window from DB matches
-      const matchDateTimes = matches
-        .map((m: any) => new Date(m.match_date).getTime())
-        .filter((t: number) => Number.isFinite(t));
-
-      const minDate = matchDateTimes.length ? new Date(Math.min(...matchDateTimes)) : new Date();
-      const maxDate = matchDateTimes.length ? new Date(Math.max(...matchDateTimes)) : new Date();
-
-      const fromDate = new Date(minDate);
-      fromDate.setUTCDate(fromDate.getUTCDate() - 1);
-      const toDate = new Date(maxDate);
-      toDate.setUTCDate(toDate.getUTCDate() + 1);
-
-      const fromStr = fromDate.toISOString().slice(0, 10);
-      const toStr = toDate.toISOString().slice(0, 10);
-
-      const TSDB_BASE = 'https://www.thesportsdb.com/api/v2/json';
-
-      const tsdbFetchJson = async (path: string): Promise<any | null> => {
-        const url = `${TSDB_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
-        const headers = {
-          'X-API-KEY': API_KEY,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        };
-
-        const tryRequest = async (method: 'GET' | 'POST') => {
-          const res = await fetch(url, {
-            method,
-            headers,
-            ...(method === 'POST' ? { body: '{}' } : {}),
-          });
-          const text = await res.text();
-          let json: any = null;
-          try {
-            json = text ? JSON.parse(text) : null;
-          } catch {
-            // ignore
-          }
-          return { res, text, json };
-        };
-
-        let out = await tryRequest('GET');
-        if (!out.res.ok) out = await tryRequest('POST');
-        return out.json;
+    const tsdbFetchJson = async (path: string): Promise<any | null> => {
+      const url = `${TSDB_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+      const headers = {
+        'X-API-KEY': API_KEY,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       };
 
-      const extractEvents = (data: any): TheSportsDBEvent[] => {
-        const arr = data?.events ?? data?.schedule ?? data?.livescores ?? data?.livescore ?? [];
-        return Array.isArray(arr) ? (arr as TheSportsDBEvent[]) : [];
-      };
-
-      const leagueId = '4350'; // Liga MX
-
-      // Fetch livescores
-      let livescoreEvents: TheSportsDBEvent[] = extractEvents(await tsdbFetchJson(`/livescore/${leagueId}`));
-
-      if (livescoreEvents.length === 0) {
-        const soccerLive = extractEvents(await tsdbFetchJson('/livescore/soccer'));
-        livescoreEvents = soccerLive.filter((e) => {
-          const league = (e as any).strLeague;
-          return typeof league === 'string' && /liga\s*mx|mexican\s*primera|liga\s*bbva/i.test(league);
+      const tryRequest = async (method: 'GET' | 'POST') => {
+        const res = await fetch(url, {
+          method,
+          headers,
+          ...(method === 'POST' ? { body: '{}' } : {}),
         });
-      }
-
-      // Fetch schedule
-      const prevData = await tsdbFetchJson(`/schedule/previous/league/${leagueId}`);
-      const nextData = await tsdbFetchJson(`/schedule/next/league/${leagueId}`);
-      const scheduleEvents = [...extractEvents(prevData), ...extractEvents(nextData)];
-
-      const inWindow = (e: TheSportsDBEvent): boolean => {
-        const d = (e as any).dateEvent;
-        return typeof d === 'string' && d >= fromStr && d <= toStr;
-      };
-
-      const allEvents = [...livescoreEvents, ...scheduleEvents].filter(inWindow);
-      console.log(`${matchday.name}: ${allEvents.length} events in window ${fromStr}..${toStr}`);
-
-      // Team name mapping
-      const teamNameMap: Record<string, string> = {
-        'guadalajara': 'CD Guadalajara',
-        'chivas': 'CD Guadalajara',
-        'cd guadalajara': 'CD Guadalajara',
-        'america': 'Club América',
-        'club america': 'Club América',
-        'cf america': 'Club América',
-        'atlas': 'Club Atlas',
-        'club atlas': 'Club Atlas',
-        'monterrey': 'CF Monterrey',
-        'cf monterrey': 'CF Monterrey',
-        'tigres': 'Tigres UANL',
-        'tigres uanl': 'Tigres UANL',
-        'cruz azul': 'Cruz Azul',
-        'pumas': 'Pumas UNAM',
-        'pumas unam': 'Pumas UNAM',
-        'pachuca': 'CF Pachuca',
-        'cf pachuca': 'CF Pachuca',
-        'toluca': 'Deportivo Toluca',
-        'deportivo toluca': 'Deportivo Toluca',
-        'santos laguna': 'Club Santos Laguna',
-        'santos': 'Club Santos Laguna',
-        'club santos laguna': 'Club Santos Laguna',
-        'leon': 'Club León',
-        'club leon': 'Club León',
-        'necaxa': 'Club Necaxa',
-        'club necaxa': 'Club Necaxa',
-        'atletico san luis': 'Atlético San Luis',
-        'san luis': 'Atlético San Luis',
-        'queretaro': 'Querétaro FC',
-        'queretaro fc': 'Querétaro FC',
-        'puebla': 'Club Puebla',
-        'club puebla': 'Club Puebla',
-        'tijuana': 'Club Tijuana',
-        'club tijuana': 'Club Tijuana',
-        'xolos': 'Club Tijuana',
-        'mazatlan': 'Mazatlán FC',
-        'mazatlan fc': 'Mazatlán FC',
-        'juarez': 'FC Juárez',
-        'fc juarez': 'FC Juárez'
-      };
-
-      const normalizeApiName = (apiName: string): string | null => {
-        const lower = apiName.toLowerCase()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        
-        for (const [apiKey, dbName] of Object.entries(teamNameMap)) {
-          if (lower.includes(apiKey) || apiKey.includes(lower)) {
-            return dbName;
-          }
+        const text = await res.text();
+        let json: any = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          // ignore
         }
-        return null;
+        return { res, text, json };
       };
 
-      const matchTeam = (apiTeam: string, dbTeam: { name: string; short_name: string }): boolean => {
-        const normalizedName = normalizeApiName(apiTeam);
-        if (normalizedName) {
-          return dbTeam.name === normalizedName;
-        }
-        const apiLower = apiTeam.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const dbLower = dbTeam.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return apiLower.includes(dbLower) || dbLower.includes(apiLower);
-      };
+      let out = await tryRequest('GET');
+      if (!out.res.ok) out = await tryRequest('POST');
+      return out.json;
+    };
 
-      let updated = 0;
-      let notFound = 0;
+    const extractEvents = (data: any): TheSportsDBEvent[] => {
+      const arr = data?.events ?? data?.schedule ?? data?.livescores ?? data?.livescore ?? [];
+      return Array.isArray(arr) ? (arr as TheSportsDBEvent[]) : [];
+    };
 
-      for (const match of matches) {
-        const homeTeam = match.home_team as unknown as { name: string; short_name: string };
-        const awayTeam = match.away_team as unknown as { name: string; short_name: string };
-        
-        if (!homeTeam || !awayTeam) continue;
+    const leagueId = '4350'; // Liga MX
 
-        const matchDirect = (e: TheSportsDBEvent) =>
-          matchTeam(e.strHomeTeam, homeTeam) && matchTeam(e.strAwayTeam, awayTeam);
-        const matchSwapped = (e: TheSportsDBEvent) =>
-          matchTeam(e.strHomeTeam, awayTeam) && matchTeam(e.strAwayTeam, homeTeam);
+    // Fetch livescores (priority for active matches)
+    let livescoreEvents: TheSportsDBEvent[] = extractEvents(await tsdbFetchJson(`/livescore/${leagueId}`));
 
-        const event = allEvents.find((e) => matchDirect(e) || matchSwapped(e));
-        const swapped = event ? matchSwapped(event) : false;
-
-        if (event) {
-          const rawHome = event.intHomeScore !== null ? parseInt(event.intHomeScore) : null;
-          const rawAway = event.intAwayScore !== null ? parseInt(event.intAwayScore) : null;
-
-          const homeScore = swapped ? rawAway : rawHome;
-          const awayScore = swapped ? rawHome : rawAway;
-          
-          const status = (event.strStatus || '').toLowerCase();
-          const isFinished = status.includes('finished') || status === 'ft' || status === 'aet' || status === 'pen';
-          
-          if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
-            console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (finished: ${isFinished})`);
-            
-            const { error: updateError } = await supabase
-              .from('matches')
-              .update({ 
-                home_score: homeScore, 
-                away_score: awayScore,
-                is_finished: isFinished 
-              })
-              .eq('id', match.id);
-
-            if (!updateError) {
-              updated++;
-            }
-          }
-        } else {
-          notFound++;
-        }
-      }
-
-      if (updated > 0) {
-        await supabase.rpc('recalculate_matchday_points', { p_matchday_id: matchday.id });
-      }
-
-      totalUpdated += updated;
-      totalNotFound += notFound;
-      console.log(`${matchday.name}: ${updated} updated, ${notFound} not found`);
+    if (livescoreEvents.length === 0) {
+      const soccerLive = extractEvents(await tsdbFetchJson('/livescore/soccer'));
+      livescoreEvents = soccerLive.filter((e) => {
+        const league = (e as any).strLeague;
+        return typeof league === 'string' && /liga\s*mx|mexican\s*primera|liga\s*bbva/i.test(league);
+      });
     }
 
-    console.log(`Auto-sync completed: ${totalUpdated} total updated, ${totalNotFound} not found`);
+    // Fetch schedule for fallback
+    const prevData = await tsdbFetchJson(`/schedule/previous/league/${leagueId}`);
+    const nextData = await tsdbFetchJson(`/schedule/next/league/${leagueId}`);
+    const scheduleEvents = [...extractEvents(prevData), ...extractEvents(nextData)];
+
+    const inWindow = (e: TheSportsDBEvent): boolean => {
+      const d = (e as any).dateEvent;
+      return typeof d === 'string' && d >= fromStr && d <= toStr;
+    };
+
+    const allEvents = [...livescoreEvents, ...scheduleEvents].filter(inWindow);
+    console.log(`${allEvents.length} events in window ${fromStr}..${toStr}`);
+
+    // Team name mapping
+    const teamNameMap: Record<string, string> = {
+      'guadalajara': 'CD Guadalajara',
+      'chivas': 'CD Guadalajara',
+      'cd guadalajara': 'CD Guadalajara',
+      'america': 'Club América',
+      'club america': 'Club América',
+      'cf america': 'Club América',
+      'atlas': 'Club Atlas',
+      'club atlas': 'Club Atlas',
+      'monterrey': 'CF Monterrey',
+      'cf monterrey': 'CF Monterrey',
+      'tigres': 'Tigres UANL',
+      'tigres uanl': 'Tigres UANL',
+      'cruz azul': 'Cruz Azul',
+      'pumas': 'Pumas UNAM',
+      'pumas unam': 'Pumas UNAM',
+      'pachuca': 'CF Pachuca',
+      'cf pachuca': 'CF Pachuca',
+      'toluca': 'Deportivo Toluca',
+      'deportivo toluca': 'Deportivo Toluca',
+      'santos laguna': 'Club Santos Laguna',
+      'santos': 'Club Santos Laguna',
+      'club santos laguna': 'Club Santos Laguna',
+      'leon': 'Club León',
+      'club leon': 'Club León',
+      'necaxa': 'Club Necaxa',
+      'club necaxa': 'Club Necaxa',
+      'atletico san luis': 'Atlético San Luis',
+      'san luis': 'Atlético San Luis',
+      'queretaro': 'Querétaro FC',
+      'queretaro fc': 'Querétaro FC',
+      'puebla': 'Club Puebla',
+      'club puebla': 'Club Puebla',
+      'tijuana': 'Club Tijuana',
+      'club tijuana': 'Club Tijuana',
+      'xolos': 'Club Tijuana',
+      'mazatlan': 'Mazatlán FC',
+      'mazatlan fc': 'Mazatlán FC',
+      'juarez': 'FC Juárez',
+      'fc juarez': 'FC Juárez'
+    };
+
+    const normalizeApiName = (apiName: string): string | null => {
+      const lower = apiName.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      
+      for (const [apiKey, dbName] of Object.entries(teamNameMap)) {
+        if (lower.includes(apiKey) || apiKey.includes(lower)) {
+          return dbName;
+        }
+      }
+      return null;
+    };
+
+    const matchTeam = (apiTeam: string, dbTeam: { name: string; short_name: string }): boolean => {
+      const normalizedName = normalizeApiName(apiTeam);
+      if (normalizedName) {
+        return dbTeam.name === normalizedName;
+      }
+      const apiLower = apiTeam.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const dbLower = dbTeam.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return apiLower.includes(dbLower) || dbLower.includes(apiLower);
+    };
+
+    let updated = 0;
+    let notFound = 0;
+    const matchdaysToRecalc = new Set<string>();
+
+    for (const match of matches) {
+      const homeTeam = match.home_team as unknown as { name: string; short_name: string };
+      const awayTeam = match.away_team as unknown as { name: string; short_name: string };
+      
+      if (!homeTeam || !awayTeam) continue;
+
+      const matchDirect = (e: TheSportsDBEvent) =>
+        matchTeam(e.strHomeTeam, homeTeam) && matchTeam(e.strAwayTeam, awayTeam);
+      const matchSwapped = (e: TheSportsDBEvent) =>
+        matchTeam(e.strHomeTeam, awayTeam) && matchTeam(e.strAwayTeam, homeTeam);
+
+      const event = allEvents.find((e) => matchDirect(e) || matchSwapped(e));
+      const swapped = event ? matchSwapped(event) : false;
+
+      if (event) {
+        const rawHome = event.intHomeScore !== null ? parseInt(event.intHomeScore) : null;
+        const rawAway = event.intAwayScore !== null ? parseInt(event.intAwayScore) : null;
+
+        const homeScore = swapped ? rawAway : rawHome;
+        const awayScore = swapped ? rawHome : rawAway;
+        
+        const status = (event.strStatus || '').toLowerCase();
+        const isFinished = status.includes('finished') || status === 'ft' || status === 'aet' || status === 'pen';
+        
+        if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
+          console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (finished: ${isFinished}, status: ${status})`);
+          
+          const { error: updateError } = await supabase
+            .from('matches')
+            .update({ 
+              home_score: homeScore, 
+              away_score: awayScore,
+              is_finished: isFinished 
+            })
+            .eq('id', match.id);
+
+          if (!updateError) {
+            updated++;
+            matchdaysToRecalc.add(match.matchday_id);
+          }
+        }
+      } else {
+        console.log(`No event found for ${homeTeam.name} vs ${awayTeam.name}`);
+        notFound++;
+      }
+    }
+
+    // Recalculate points for affected matchdays
+    for (const matchdayId of matchdaysToRecalc) {
+      await supabase.rpc('recalculate_matchday_points', { p_matchday_id: matchdayId });
+    }
+
+    console.log(`Auto-sync completed: ${updated} updated, ${notFound} not found`);
 
     return new Response(JSON.stringify({ 
       success: true, 
-      updated: totalUpdated, 
-      notFound: totalNotFound,
-      message: `Sync automático: ${totalUpdated} partidos actualizados`
+      updated,
+      notFound,
+      activeMatches: matches.length,
+      message: `Sync: ${updated}/${matches.length} partidos actualizados`
     }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     });
