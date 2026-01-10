@@ -182,7 +182,21 @@ serve(async (req) => {
     };
 
     const allEvents = [...livescoreEvents, ...scheduleEvents].filter(inWindow);
-    console.log(`${allEvents.length} events in window ${fromStr}..${toStr}`);
+    console.log(
+      `TSDB events: live=${livescoreEvents.length} schedule=${scheduleEvents.length} windowed=${allEvents.length} window ${fromStr}..${toStr}`
+    );
+    if (allEvents.length > 0) {
+      const s = allEvents[0] as any;
+      console.log('TSDB sample event:', {
+        home: s?.strHomeTeam,
+        away: s?.strAwayTeam,
+        homeScore: s?.intHomeScore,
+        awayScore: s?.intAwayScore,
+        status: s?.strStatus,
+        league: s?.strLeague,
+        dateEvent: s?.dateEvent,
+      });
+    }
 
     // Team name mapping
     const teamNameMap: Record<string, string> = {
@@ -249,6 +263,17 @@ serve(async (req) => {
       return apiLower.includes(dbLower) || dbLower.includes(apiLower);
     };
 
+    const normalizeStatus = (v: unknown): string => String(v ?? '').trim().toLowerCase();
+
+    const parseScore = (v: unknown): number | null => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+      const s = String(v).trim();
+      if (!s) return null;
+      const n = Number.parseInt(s, 10);
+      return Number.isFinite(n) ? n : null;
+    };
+
     let updated = 0;
     let notFound = 0;
     const matchdaysToRecalc = new Set<string>();
@@ -268,36 +293,57 @@ serve(async (req) => {
       const swapped = event ? matchSwapped(event) : false;
 
       if (event) {
-        const rawHome = event.intHomeScore !== null ? parseInt(event.intHomeScore) : null;
-        const rawAway = event.intAwayScore !== null ? parseInt(event.intAwayScore) : null;
-
-        const homeScore = swapped ? rawAway : rawHome;
-        const awayScore = swapped ? rawHome : rawAway;
-        
-        const status = (event.strStatus || '').toLowerCase();
+        const status = normalizeStatus(event.strStatus);
         const isFinished =
           status.includes('finished') ||
           status.includes('final') ||
           status === 'ft' ||
           status === 'aet' ||
           status === 'pen';
-        
-        if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
-          console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (finished: ${isFinished}, status: ${status})`);
-          
-          const { error: updateError } = await supabase
-            .from('matches')
-            .update({ 
-              home_score: homeScore, 
-              away_score: awayScore,
-              is_finished: isFinished 
-            })
-            .eq('id', match.id);
 
-          if (!updateError) {
-            updated++;
-            matchdaysToRecalc.add(match.matchday_id);
-          }
+        const isNotStarted = status === 'ns' || status.includes('not started');
+
+        const rawHome = parseScore((event as any).intHomeScore);
+        const rawAway = parseScore((event as any).intAwayScore);
+
+        let homeScore = swapped ? rawAway : rawHome;
+        let awayScore = swapped ? rawHome : rawAway;
+
+        // Some endpoints return null/"" for the side that has 0.
+        // If we have at least one score and the match isn't "not started", default the missing side to 0.
+        if (!isNotStarted && (homeScore !== null || awayScore !== null)) {
+          homeScore = homeScore ?? 0;
+          awayScore = awayScore ?? 0;
+        }
+
+        if (homeScore === null || awayScore === null) {
+          console.log(`Match found but scores missing: ${homeTeam.name} vs ${awayTeam.name}`, {
+            status,
+            swapped,
+            intHomeScore: (event as any).intHomeScore,
+            intAwayScore: (event as any).intAwayScore,
+          });
+          continue;
+        }
+
+        console.log(
+          `Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (finished: ${isFinished}, status: ${status})`
+        );
+
+        const { error: updateError } = await supabase
+          .from('matches')
+          .update({
+            home_score: homeScore,
+            away_score: awayScore,
+            is_finished: isFinished,
+          })
+          .eq('id', match.id);
+
+        if (updateError) {
+          console.error('Error updating match:', updateError);
+        } else {
+          updated++;
+          matchdaysToRecalc.add(match.matchday_id);
         }
       } else {
         console.log(`No event found for ${homeTeam.name} vs ${awayTeam.name}`);
