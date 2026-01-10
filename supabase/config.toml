@@ -8,9 +8,8 @@ verify_jwt = false
 
 [functions.auto-sync-results]
 verify_jwt = false
-# Cron horarios (hora México UTC-6):
-# - Viernes 7:10pm, 9:10pm, 11:10pm → Sábado 1:10, 3:10, 5:10 AM UTC
-# - Sábado 7:10pm, 9:10pm, 11:10pm → Domingo 1:10, 3:10, 5:10 AM UTC
-# - Domingo 3:10pm → Domingo 21:10 UTC
-# - Domingo 7:10pm, 9:10pm, 11:10pm → Lunes 1:10, 3:10, 5:10 AM UTC
-schedule = "10 1,3,5,21 * * 0,1,6"
+# Cron cada 3 minutos. La función verifica internamente si hay partidos activos:
+# - Solo sincroniza partidos que YA iniciaron (match_date <= now)
+# - Deja de sincronizar cuando el partido termina (is_finished = true)
+# - Soporta múltiples partidos simultáneos
+schedule = "*/3 * * * *"
