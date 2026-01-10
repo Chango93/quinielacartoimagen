@@ -32,11 +32,12 @@ export default function Index() {
   }, [user]);
 
   const fetchCurrentMatchday = async () => {
+    // Obtener la jornada abierta más próxima (la que tiene start_date más antiguo)
     const { data } = await supabase
       .from('matchdays')
       .select('*')
       .eq('is_open', true)
-      .order('start_date', { ascending: false })
+      .order('start_date', { ascending: true })
       .limit(1)
       .maybeSingle();
     
