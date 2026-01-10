@@ -33,7 +33,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
   const [matchdays, setMatchdays] = useState<Matchday[]>([]);
   const [selectedMatchday, setSelectedMatchday] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'season' | 'matchday'>('season');
+  const [activeTab, setActiveTab] = useState<'season' | 'matchday'>('matchday');
 
   useEffect(() => {
     fetchLeaderboard();
@@ -173,8 +173,8 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'season' | 'matchday')}>
         <TabsList className="bg-muted w-full">
-          <TabsTrigger value="season" className="flex-1">Temporada</TabsTrigger>
           <TabsTrigger value="matchday" className="flex-1">Por Jornada</TabsTrigger>
+          <TabsTrigger value="season" className="flex-1">Temporada</TabsTrigger>
         </TabsList>
 
         <TabsContent value="season" className="mt-4">
