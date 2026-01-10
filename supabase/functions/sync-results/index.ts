@@ -94,32 +94,45 @@ serve(async (req) => {
       });
     }
 
-    // Liga MX Clausura 2025 - league ID 262
+    // Liga MX - league ID 262
+    // Try both current year and previous year since API-Football may use different season conventions
     const today = new Date();
-    const seasonYear = today.getMonth() < 6 ? today.getFullYear() : today.getFullYear();
+    const currentYear = today.getFullYear();
+    const previousYear = currentYear - 1;
     
     // Fetch fixtures from API-Football - include finished (FT), live (1H, 2H, HT, ET, P, BT), and other statuses
     // FT = Full Time, 1H = First Half, 2H = Second Half, HT = Half Time, ET = Extra Time, P = Penalties, BT = Break Time
     const statuses = 'FT-1H-2H-HT-ET-P-BT';
-    const apiUrl = `https://v3.football.api-sports.io/fixtures?league=262&season=${seasonYear}&status=${statuses}`;
-    console.log('Fetching from API:', apiUrl);
     
-    const apiResponse = await fetch(apiUrl, {
-      headers: {
-        'x-apisports-key': API_KEY
-      }
-    });
-
-    if (!apiResponse.ok) {
-      console.error('API-Football error:', apiResponse.status, await apiResponse.text());
-      return new Response(JSON.stringify({ error: 'Failed to fetch from API-Football' }), { 
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    let fixtures: ApiFixture[] = [];
+    
+    // Try current year first
+    for (const seasonYear of [currentYear, previousYear]) {
+      const apiUrl = `https://v3.football.api-sports.io/fixtures?league=262&season=${seasonYear}&status=${statuses}`;
+      console.log('Fetching from API:', apiUrl);
+      
+      const apiResponse = await fetch(apiUrl, {
+        headers: {
+          'x-apisports-key': API_KEY
+        }
       });
-    }
 
-    const apiData = await apiResponse.json();
-    const fixtures: ApiFixture[] = apiData.response || [];
-    console.log(`Found ${fixtures.length} fixtures from API (finished + live)`);
+      if (!apiResponse.ok) {
+        console.error('API-Football error:', apiResponse.status, await apiResponse.text());
+        continue;
+      }
+
+      const apiData = await apiResponse.json();
+      const seasonFixtures: ApiFixture[] = apiData.response || [];
+      console.log(`Found ${seasonFixtures.length} fixtures from season ${seasonYear}`);
+      
+      if (seasonFixtures.length > 0) {
+        fixtures = seasonFixtures;
+        break;
+      }
+    }
+    
+    console.log(`Total fixtures found: ${fixtures.length}`);
 
     // Team name mapping (API-Football names -> DB names based on actual database)
     // DB teams: Atlético San Luis, CD Guadalajara, CF Monterrey, CF Pachuca, Club América,
