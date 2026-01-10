@@ -6,20 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ApiFixture {
-  fixture: {
-    id: number;
-    date: string;
-    status: { short: string };
-  };
-  teams: {
-    home: { name: string };
-    away: { name: string };
-  };
-  goals: {
-    home: number | null;
-    away: number | null;
-  };
+// TheSportsDB event structure
+interface TheSportsDBEvent {
+  idEvent: string;
+  strEvent: string;
+  strHomeTeam: string;
+  strAwayTeam: string;
+  intHomeScore: string | null;
+  intAwayScore: string | null;
+  strStatus: string | null;
+  dateEvent: string;
+  strTime: string;
 }
 
 serve(async (req) => {
@@ -87,94 +84,107 @@ serve(async (req) => {
       });
     }
 
-    const API_KEY = Deno.env.get('API_FOOTBALL_KEY');
+    const API_KEY = Deno.env.get('THESPORTSDB_API_KEY');
     if (!API_KEY) {
-      return new Response(JSON.stringify({ error: 'API_FOOTBALL_KEY not configured' }), { 
+      return new Response(JSON.stringify({ error: 'THESPORTSDB_API_KEY not configured' }), { 
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
-    // Liga MX - league ID 262
-    // Fetch fixtures for the matchday date window (more reliable than filtering by status)
-    const matchDateTimes = (matches || [])
-      .map((m: any) => new Date(m.match_date).getTime())
-      .filter((t: number) => Number.isFinite(t));
-
-    const minDate = matchDateTimes.length ? new Date(Math.min(...matchDateTimes)) : new Date();
-    const maxDate = matchDateTimes.length ? new Date(Math.max(...matchDateTimes)) : new Date();
-
-    const fromDate = new Date(minDate);
-    fromDate.setUTCDate(fromDate.getUTCDate() - 1);
-    const toDate = new Date(maxDate);
-    toDate.setUTCDate(toDate.getUTCDate() + 1);
-
-    const fromStr = fromDate.toISOString().slice(0, 10);
-    const toStr = toDate.toISOString().slice(0, 10);
-
-    console.log(`Fetching fixtures window from=${fromStr} to=${toStr}`);
-
-    // Try both current year and previous year since API-Football may use different season conventions
-    const currentYear = new Date().getFullYear();
-    const previousYear = currentYear - 1;
-
-    let fixtures: ApiFixture[] = [];
-
-    for (const seasonYear of [currentYear, previousYear]) {
-      const apiUrl = `https://v3.football.api-sports.io/fixtures?league=262&season=${seasonYear}&from=${fromStr}&to=${toStr}`;
-      console.log('Fetching from API:', apiUrl);
-
-      const apiResponse = await fetch(apiUrl, {
-        headers: { 'x-apisports-key': API_KEY },
-      });
-
-      if (!apiResponse.ok) {
-        console.error('API-Football error:', apiResponse.status, await apiResponse.text());
-        continue;
+    // Liga MX ID in TheSportsDB: 4350
+    const LIGA_MX_ID = '4350';
+    
+    // Fetch livescores first (for matches currently in progress)
+    const livescoreUrl = `https://www.thesportsdb.com/api/v2/json/${API_KEY}/livescore/${LIGA_MX_ID}`;
+    console.log('Fetching livescores from:', livescoreUrl);
+    
+    let livescoreEvents: TheSportsDBEvent[] = [];
+    try {
+      const livescoreResponse = await fetch(livescoreUrl);
+      if (livescoreResponse.ok) {
+        const livescoreData = await livescoreResponse.json();
+        livescoreEvents = livescoreData.livescores || livescoreData.events || [];
+        console.log(`Found ${livescoreEvents.length} live events`);
       }
-
-      const apiData = await apiResponse.json();
-      if (apiData?.errors && Object.keys(apiData.errors).length > 0) {
-        console.log('API-Football returned errors:', apiData.errors);
-      }
-
-      const seasonFixtures: ApiFixture[] = apiData.response || [];
-      console.log(`Found ${seasonFixtures.length} fixtures from season ${seasonYear}`);
-
-      if (seasonFixtures.length > 0) {
-        fixtures = seasonFixtures;
-        break;
-      }
+    } catch (e) {
+      console.log('Livescore fetch error (may be no live games):', e);
     }
 
-    console.log(`Total fixtures found: ${fixtures.length}`);
+    // Fetch recent and upcoming events from schedule
+    const prevEventsUrl = `https://www.thesportsdb.com/api/v2/json/${API_KEY}/schedule/previous/league/${LIGA_MX_ID}`;
+    const nextEventsUrl = `https://www.thesportsdb.com/api/v2/json/${API_KEY}/schedule/next/league/${LIGA_MX_ID}`;
+    
+    console.log('Fetching previous events:', prevEventsUrl);
+    console.log('Fetching next events:', nextEventsUrl);
 
-    // Team name mapping (API-Football names -> DB names based on actual database)
-    // DB teams: Atlético San Luis, CD Guadalajara, CF Monterrey, CF Pachuca, Club América,
-    // Club Atlas, Club León, Club Necaxa, Club Puebla, Club Santos Laguna, Club Tijuana,
-    // Cruz Azul, Deportivo Toluca, FC Juárez, Mazatlán FC, Pumas UNAM, Querétaro FC, Tigres UANL
+    let scheduleEvents: TheSportsDBEvent[] = [];
+    
+    // Fetch previous events (completed matches)
+    try {
+      const prevResponse = await fetch(prevEventsUrl);
+      if (prevResponse.ok) {
+        const prevData = await prevResponse.json();
+        const prevEvents = prevData.schedule || prevData.events || [];
+        scheduleEvents.push(...prevEvents);
+        console.log(`Found ${prevEvents.length} previous events`);
+      }
+    } catch (e) {
+      console.log('Previous events fetch error:', e);
+    }
+
+    // Fetch next events (upcoming matches)
+    try {
+      const nextResponse = await fetch(nextEventsUrl);
+      if (nextResponse.ok) {
+        const nextData = await nextResponse.json();
+        const nextEvents = nextData.schedule || nextData.events || [];
+        scheduleEvents.push(...nextEvents);
+        console.log(`Found ${nextEvents.length} next events`);
+      }
+    } catch (e) {
+      console.log('Next events fetch error:', e);
+    }
+
+    // Combine all events, prioritizing livescores (more up-to-date)
+    const allEvents = [...livescoreEvents, ...scheduleEvents];
+    console.log(`Total events to process: ${allEvents.length}`);
+
+    // Team name mapping (TheSportsDB names -> DB names)
     const teamNameMap: Record<string, string> = {
       'guadalajara': 'CD Guadalajara',
       'chivas': 'CD Guadalajara',
+      'cd guadalajara': 'CD Guadalajara',
       'america': 'Club América',
       'club america': 'Club América',
+      'cf america': 'Club América',
       'atlas': 'Club Atlas',
+      'club atlas': 'Club Atlas',
       'monterrey': 'CF Monterrey',
+      'cf monterrey': 'CF Monterrey',
       'tigres': 'Tigres UANL',
       'tigres uanl': 'Tigres UANL',
       'cruz azul': 'Cruz Azul',
       'pumas': 'Pumas UNAM',
       'pumas unam': 'Pumas UNAM',
       'pachuca': 'CF Pachuca',
+      'cf pachuca': 'CF Pachuca',
       'toluca': 'Deportivo Toluca',
+      'deportivo toluca': 'Deportivo Toluca',
       'santos laguna': 'Club Santos Laguna',
       'santos': 'Club Santos Laguna',
+      'club santos laguna': 'Club Santos Laguna',
       'leon': 'Club León',
+      'club leon': 'Club León',
       'necaxa': 'Club Necaxa',
+      'club necaxa': 'Club Necaxa',
       'atletico san luis': 'Atlético San Luis',
       'san luis': 'Atlético San Luis',
       'queretaro': 'Querétaro FC',
+      'queretaro fc': 'Querétaro FC',
       'puebla': 'Club Puebla',
+      'club puebla': 'Club Puebla',
       'tijuana': 'Club Tijuana',
+      'club tijuana': 'Club Tijuana',
       'xolos': 'Club Tijuana',
       'mazatlan': 'Mazatlán FC',
       'mazatlan fc': 'Mazatlán FC',
@@ -216,29 +226,40 @@ serve(async (req) => {
       
       if (!homeTeam || !awayTeam) continue;
       
-      // Find matching fixture
-      const fixture = fixtures.find(f => 
-        matchTeam(f.teams.home.name, homeTeam) && 
-        matchTeam(f.teams.away.name, awayTeam)
+      // Find matching event
+      const event = allEvents.find(e => 
+        matchTeam(e.strHomeTeam, homeTeam) && 
+        matchTeam(e.strAwayTeam, awayTeam)
       );
 
-      if (fixture && fixture.goals.home !== null && fixture.goals.away !== null) {
-        const isFinished = fixture.fixture.status.short === 'FT';
-        console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${fixture.goals.home}-${fixture.goals.away} (${isFinished ? 'finished' : 'live'})`);
+      if (event) {
+        const homeScore = event.intHomeScore !== null ? parseInt(event.intHomeScore) : null;
+        const awayScore = event.intAwayScore !== null ? parseInt(event.intAwayScore) : null;
         
-        const { error: updateError } = await supabase
-          .from('matches')
-          .update({ 
-            home_score: fixture.goals.home, 
-            away_score: fixture.goals.away,
-            is_finished: isFinished 
-          })
-          .eq('id', match.id);
+        // Determine if finished based on status
+        // Common statuses: "Match Finished", "FT", "NS" (not started), "1H", "2H", "HT", etc.
+        const status = (event.strStatus || '').toLowerCase();
+        const isFinished = status.includes('finished') || status === 'ft' || status === 'aet' || status === 'pen';
+        
+        if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
+          console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (status: ${event.strStatus}, finished: ${isFinished})`);
+          
+          const { error: updateError } = await supabase
+            .from('matches')
+            .update({ 
+              home_score: homeScore, 
+              away_score: awayScore,
+              is_finished: isFinished 
+            })
+            .eq('id', match.id);
 
-        if (updateError) {
-          console.error('Error updating match:', updateError);
+          if (updateError) {
+            console.error('Error updating match:', updateError);
+          } else {
+            updated++;
+          }
         } else {
-          updated++;
+          console.log(`Match found but no scores yet: ${homeTeam.name} vs ${awayTeam.name} (status: ${event.strStatus})`);
         }
       } else {
         console.log(`No result found for ${homeTeam.name} vs ${awayTeam.name}`);
