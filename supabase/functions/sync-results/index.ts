@@ -6,17 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// TheSportsDB event structure
+// TheSportsDB event structure (fields may vary slightly by endpoint)
 interface TheSportsDBEvent {
   idEvent: string;
-  strEvent: string;
+  strEvent?: string;
+  strLeague?: string;
+  idLeague?: string;
   strHomeTeam: string;
   strAwayTeam: string;
   intHomeScore: string | null;
   intAwayScore: string | null;
   strStatus: string | null;
-  dateEvent: string;
-  strTime: string;
+  dateEvent?: string;
+  strTime?: string;
 }
 
 serve(async (req) => {
@@ -91,63 +93,127 @@ serve(async (req) => {
       });
     }
 
-    // Liga MX ID in TheSportsDB: 4350
-    const LIGA_MX_ID = '4350';
-    
-    // Fetch livescores first (for matches currently in progress)
-    const livescoreUrl = `https://www.thesportsdb.com/api/v2/json/${API_KEY}/livescore/${LIGA_MX_ID}`;
-    console.log('Fetching livescores from:', livescoreUrl);
-    
-    let livescoreEvents: TheSportsDBEvent[] = [];
-    try {
-      const livescoreResponse = await fetch(livescoreUrl);
-      if (livescoreResponse.ok) {
-        const livescoreData = await livescoreResponse.json();
-        livescoreEvents = livescoreData.livescores || livescoreData.events || [];
-        console.log(`Found ${livescoreEvents.length} live events`);
+    // Build a date window from DB matches so we only process relevant events
+    const matchDateTimes = (matches || [])
+      .map((m: any) => new Date(m.match_date).getTime())
+      .filter((t: number) => Number.isFinite(t));
+
+    const minDate = matchDateTimes.length ? new Date(Math.min(...matchDateTimes)) : new Date();
+    const maxDate = matchDateTimes.length ? new Date(Math.max(...matchDateTimes)) : new Date();
+
+    const fromDate = new Date(minDate);
+    fromDate.setUTCDate(fromDate.getUTCDate() - 1);
+    const toDate = new Date(maxDate);
+    toDate.setUTCDate(toDate.getUTCDate() + 1);
+
+    const fromStr = fromDate.toISOString().slice(0, 10);
+    const toStr = toDate.toISOString().slice(0, 10);
+
+    const TSDB_BASE = 'https://www.thesportsdb.com/api/v2/json';
+
+    const tsdbFetchJson = async (path: string): Promise<any | null> => {
+      const url = `${TSDB_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+      const headers = {
+        'X-API-KEY': API_KEY,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      };
+
+      const tryRequest = async (method: 'GET' | 'POST') => {
+        const res = await fetch(url, {
+          method,
+          headers,
+          ...(method === 'POST' ? { body: '{}' } : {}),
+        });
+        const text = await res.text();
+        let json: any = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+          // ignore json parse errors
+        }
+        return { res, text, json };
+      };
+
+      let out = await tryRequest('GET');
+      if (!out.res.ok) out = await tryRequest('POST');
+
+      if (!out.res.ok) {
+        console.log(`TSDB request failed ${out.res.status} ${url} :: ${out.text.slice(0, 200)}`);
+        return out.json;
       }
-    } catch (e) {
-      console.log('Livescore fetch error (may be no live games):', e);
+
+      return out.json;
+    };
+
+    const extractEvents = (data: any): TheSportsDBEvent[] => {
+      const arr = data?.events ?? data?.schedule ?? data?.livescores ?? data?.livescore ?? [];
+      return Array.isArray(arr) ? (arr as TheSportsDBEvent[]) : [];
+    };
+
+    const resolveLigaMxLeagueId = async (): Promise<string | null> => {
+      const queries = ['liga_mx', 'liga_bbva_mx', 'mexican_primera', 'mexican_primera_league', 'mexico_primera'];
+      for (const q of queries) {
+        const data = await tsdbFetchJson(`/search/league/${q}`);
+        const leagues = (data?.leagues ?? data?.search ?? data?.results ?? data?.league ?? []) as any[];
+        if (!Array.isArray(leagues)) continue;
+
+        const found = leagues.find((l) =>
+          typeof l?.idLeague === 'string' &&
+          typeof l?.strSport === 'string' &&
+          l.strSport.toLowerCase() === 'soccer' &&
+          typeof l?.strLeague === 'string' &&
+          /liga\s*mx|mexican\s*primera|liga\s*bbva/i.test(l.strLeague)
+        );
+
+        if (found?.idLeague) return found.idLeague;
+      }
+      return null;
+    };
+
+    const leagueId = (await resolveLigaMxLeagueId()) || '4350';
+    console.log(`Resolved Liga MX leagueId=${leagueId} window ${fromStr}..${toStr}`);
+
+    // Fetch livescores (in-progress matches)
+    let livescoreEvents: TheSportsDBEvent[] = extractEvents(await tsdbFetchJson(`/livescore/${leagueId}`));
+
+    // Fallback: livescore by sport then filter to Liga MX
+    if (livescoreEvents.length === 0) {
+      const soccerLive = extractEvents(await tsdbFetchJson('/livescore/soccer'));
+      livescoreEvents = soccerLive.filter((e) => {
+        const league = (e as any).strLeague;
+        return typeof league === 'string' && /liga\s*mx|mexican\s*primera|liga\s*bbva/i.test(league);
+      });
+      if (livescoreEvents.length > 0) {
+        console.log(`Livescore fallback via /livescore/soccer matched ${livescoreEvents.length} Liga MX events`);
+      }
     }
 
     // Fetch recent and upcoming events from schedule
-    const prevEventsUrl = `https://www.thesportsdb.com/api/v2/json/${API_KEY}/schedule/previous/league/${LIGA_MX_ID}`;
-    const nextEventsUrl = `https://www.thesportsdb.com/api/v2/json/${API_KEY}/schedule/next/league/${LIGA_MX_ID}`;
-    
-    console.log('Fetching previous events:', prevEventsUrl);
-    console.log('Fetching next events:', nextEventsUrl);
+    const prevData = await tsdbFetchJson(`/schedule/previous/league/${leagueId}`);
+    const nextData = await tsdbFetchJson(`/schedule/next/league/${leagueId}`);
+    const scheduleEvents = [...extractEvents(prevData), ...extractEvents(nextData)];
 
-    let scheduleEvents: TheSportsDBEvent[] = [];
-    
-    // Fetch previous events (completed matches)
-    try {
-      const prevResponse = await fetch(prevEventsUrl);
-      if (prevResponse.ok) {
-        const prevData = await prevResponse.json();
-        const prevEvents = prevData.schedule || prevData.events || [];
-        scheduleEvents.push(...prevEvents);
-        console.log(`Found ${prevEvents.length} previous events`);
-      }
-    } catch (e) {
-      console.log('Previous events fetch error:', e);
-    }
-
-    // Fetch next events (upcoming matches)
-    try {
-      const nextResponse = await fetch(nextEventsUrl);
-      if (nextResponse.ok) {
-        const nextData = await nextResponse.json();
-        const nextEvents = nextData.schedule || nextData.events || [];
-        scheduleEvents.push(...nextEvents);
-        console.log(`Found ${nextEvents.length} next events`);
-      }
-    } catch (e) {
-      console.log('Next events fetch error:', e);
-    }
+    const inWindow = (e: TheSportsDBEvent): boolean => {
+      const d = (e as any).dateEvent;
+      return typeof d === 'string' && d >= fromStr && d <= toStr;
+    };
 
     // Combine all events, prioritizing livescores (more up-to-date)
-    const allEvents = [...livescoreEvents, ...scheduleEvents];
-    console.log(`Total events to process: ${allEvents.length}`);
+    const allEvents = [...livescoreEvents, ...scheduleEvents].filter(inWindow);
+    console.log(`TSDB events: live=${livescoreEvents.length} schedule=${scheduleEvents.length} windowed=${allEvents.length}`);
+    if (allEvents.length > 0) {
+      const sample = allEvents[0] as any;
+      console.log('TSDB sample event:', {
+        home: sample?.strHomeTeam,
+        away: sample?.strAwayTeam,
+        homeScore: sample?.intHomeScore,
+        awayScore: sample?.intAwayScore,
+        status: sample?.strStatus,
+        league: sample?.strLeague,
+        dateEvent: sample?.dateEvent,
+      });
+    }
 
     // Team name mapping (TheSportsDB names -> DB names)
     const teamNameMap: Record<string, string> = {
@@ -226,15 +292,21 @@ serve(async (req) => {
       
       if (!homeTeam || !awayTeam) continue;
       
-      // Find matching event
-      const event = allEvents.find(e => 
-        matchTeam(e.strHomeTeam, homeTeam) && 
-        matchTeam(e.strAwayTeam, awayTeam)
-      );
+      // Find matching event (also allow swapped home/away in provider)
+      const matchDirect = (e: TheSportsDBEvent) =>
+        matchTeam(e.strHomeTeam, homeTeam) && matchTeam(e.strAwayTeam, awayTeam);
+      const matchSwapped = (e: TheSportsDBEvent) =>
+        matchTeam(e.strHomeTeam, awayTeam) && matchTeam(e.strAwayTeam, homeTeam);
+
+      const event = allEvents.find((e) => matchDirect(e) || matchSwapped(e));
+      const swapped = event ? matchSwapped(event) : false;
 
       if (event) {
-        const homeScore = event.intHomeScore !== null ? parseInt(event.intHomeScore) : null;
-        const awayScore = event.intAwayScore !== null ? parseInt(event.intAwayScore) : null;
+        const rawHome = event.intHomeScore !== null ? parseInt(event.intHomeScore) : null;
+        const rawAway = event.intAwayScore !== null ? parseInt(event.intAwayScore) : null;
+
+        const homeScore = swapped ? rawAway : rawHome;
+        const awayScore = swapped ? rawHome : rawAway;
         
         // Determine if finished based on status
         // Common statuses: "Match Finished", "FT", "NS" (not started), "1H", "2H", "HT", etc.
