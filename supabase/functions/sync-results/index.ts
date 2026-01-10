@@ -98,8 +98,10 @@ serve(async (req) => {
     const today = new Date();
     const seasonYear = today.getMonth() < 6 ? today.getFullYear() : today.getFullYear();
     
-    // Fetch recent fixtures from API-Football
-    const apiUrl = `https://v3.football.api-sports.io/fixtures?league=262&season=${seasonYear}&status=FT`;
+    // Fetch fixtures from API-Football - include finished (FT), live (1H, 2H, HT, ET, P, BT), and other statuses
+    // FT = Full Time, 1H = First Half, 2H = Second Half, HT = Half Time, ET = Extra Time, P = Penalties, BT = Break Time
+    const statuses = 'FT-1H-2H-HT-ET-P-BT';
+    const apiUrl = `https://v3.football.api-sports.io/fixtures?league=262&season=${seasonYear}&status=${statuses}`;
     console.log('Fetching from API:', apiUrl);
     
     const apiResponse = await fetch(apiUrl, {
@@ -117,7 +119,7 @@ serve(async (req) => {
 
     const apiData = await apiResponse.json();
     const fixtures: ApiFixture[] = apiData.response || [];
-    console.log(`Found ${fixtures.length} finished fixtures from API`);
+    console.log(`Found ${fixtures.length} fixtures from API (finished + live)`);
 
     // Team name mapping (API-Football names -> DB names based on actual database)
     // DB teams: Atlético San Luis, CD Guadalajara, CF Monterrey, CF Pachuca, Club América,
@@ -194,14 +196,15 @@ serve(async (req) => {
       );
 
       if (fixture && fixture.goals.home !== null && fixture.goals.away !== null) {
-        console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${fixture.goals.home}-${fixture.goals.away}`);
+        const isFinished = fixture.fixture.status.short === 'FT';
+        console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${fixture.goals.home}-${fixture.goals.away} (${isFinished ? 'finished' : 'live'})`);
         
         const { error: updateError } = await supabase
           .from('matches')
           .update({ 
             home_score: fixture.goals.home, 
             away_score: fixture.goals.away,
-            is_finished: true 
+            is_finished: isFinished 
           })
           .eq('id', match.id);
 
