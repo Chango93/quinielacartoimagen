@@ -44,9 +44,11 @@ serve(async (req) => {
       });
     }
 
-    // Get all ACTIVE matches: started (match_date <= now) but not finished
-    // This handles multiple simultaneous matches automatically
-    const { data: activeMatches, error: matchesError } = await supabase
+    // Get all ACTIVE matches: started (match_date <= now) but not finished.
+    // NOTE: We intentionally do NOT depend on matchday.is_open here, because
+    // matchday end_date can be configured incorrectly and close a matchday early.
+    // We keep syncing until the match reaches full time (is_finished=true).
+    const { data: rawMatches, error: matchesError } = await supabase
       .from('matches')
       .select(`
         id,
@@ -56,21 +58,19 @@ serve(async (req) => {
         away_score,
         is_finished,
         home_team:teams!matches_home_team_id_fkey(name, short_name),
-        away_team:teams!matches_away_team_id_fkey(name, short_name),
-        matchday:matchdays!matches_matchday_id_fkey(id, name, is_open)
+        away_team:teams!matches_away_team_id_fkey(name, short_name)
       `)
       .eq('is_finished', false)
       .lte('match_date', nowUtc.toISOString());
 
     if (matchesError) {
       console.error('Error fetching active matches:', matchesError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch matches' }), { 
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Failed to fetch matches' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Filter to only matches in open matchdays
-    const matches = (activeMatches || []).filter((m: any) => m.matchday?.is_open === true);
+    const matches = rawMatches ?? [];
 
     if (matches.length === 0) {
       console.log('No active matches to sync (no matches started or all finished)');
@@ -137,7 +137,28 @@ serve(async (req) => {
       return Array.isArray(arr) ? (arr as TheSportsDBEvent[]) : [];
     };
 
-    const leagueId = '4350'; // Liga MX
+    const resolveLigaMxLeagueId = async (): Promise<string | null> => {
+      const queries = ['liga_mx', 'liga_bbva_mx', 'mexican_primera', 'mexican_primera_league', 'mexico_primera'];
+      for (const q of queries) {
+        const data = await tsdbFetchJson(`/search/league/${q}`);
+        const leagues = (data?.leagues ?? data?.search ?? data?.results ?? data?.league ?? []) as any[];
+        if (!Array.isArray(leagues)) continue;
+
+        const found = leagues.find((l) =>
+          typeof l?.idLeague === 'string' &&
+          typeof l?.strSport === 'string' &&
+          l.strSport.toLowerCase() === 'soccer' &&
+          typeof l?.strLeague === 'string' &&
+          /liga\s*mx|mexican\s*primera|liga\s*bbva/i.test(l.strLeague)
+        );
+
+        if (found?.idLeague) return found.idLeague;
+      }
+      return null;
+    };
+
+    const leagueId = (await resolveLigaMxLeagueId()) || '4350';
+    console.log(`Resolved Liga MX leagueId=${leagueId} window ${fromStr}..${toStr}`);
 
     // Fetch livescores (priority for active matches)
     let livescoreEvents: TheSportsDBEvent[] = extractEvents(await tsdbFetchJson(`/livescore/${leagueId}`));
@@ -254,7 +275,12 @@ serve(async (req) => {
         const awayScore = swapped ? rawHome : rawAway;
         
         const status = (event.strStatus || '').toLowerCase();
-        const isFinished = status.includes('finished') || status === 'ft' || status === 'aet' || status === 'pen';
+        const isFinished =
+          status.includes('finished') ||
+          status.includes('final') ||
+          status === 'ft' ||
+          status === 'aet' ||
+          status === 'pen';
         
         if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
           console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (finished: ${isFinished}, status: ${status})`);
