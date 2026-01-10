@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.auto-close-matchdays]
 verify_jwt = false
+
+[functions.auto-sync-results]
+verify_jwt = false
+# Cron: Sábados y domingos a 7:10pm, 9:10pm, 11:10pm hora México (UTC-6)
+# Esto equivale a domingos y lunes a 1:10am, 3:10am, 5:10am UTC
+schedule = "10 1,3,5 * * 0,1"
