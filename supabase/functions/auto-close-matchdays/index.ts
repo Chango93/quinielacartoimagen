@@ -76,28 +76,10 @@ serve(async (req: Request) => {
       );
     }
 
-    // Close each matchday (only if ALL matches are finished)
+    // Close each matchday when end_date passes (locks predictions)
+    // Note: auto-sync-results will continue updating scores until matches finish
     const closedMatchdays: string[] = [];
-    const skippedMatchdays: string[] = [];
-
     for (const matchday of matchdaysToClose) {
-      const { count: unfinishedCount, error: countError } = await adminSupabase
-        .from("matches")
-        .select("id", { count: "exact", head: true })
-        .eq("matchday_id", matchday.id)
-        .eq("is_finished", false);
-
-      if (countError) {
-        console.error(`Failed to check unfinished matches for ${matchday.name}:`, countError);
-        continue;
-      }
-
-      if ((unfinishedCount ?? 0) > 0) {
-        skippedMatchdays.push(matchday.name);
-        console.log(`Skip closing matchday (unfinished matches): ${matchday.name} (${unfinishedCount})`);
-        continue;
-      }
-
       const { error: updateError } = await adminSupabase
         .from("matchdays")
         .update({ is_open: false, updated_at: now })
@@ -116,8 +98,6 @@ serve(async (req: Request) => {
         message: `Closed ${closedMatchdays.length} matchday(s)`,
         closed: closedMatchdays.length,
         matchdays: closedMatchdays,
-        skipped: skippedMatchdays.length,
-        skipped_matchdays: skippedMatchdays,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
