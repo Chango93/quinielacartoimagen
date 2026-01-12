@@ -10,14 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock, CheckCircle2 } from 'lucide-react';
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
 import MatchdayChampions from '@/components/admin/MatchdayChampions';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
-interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; }
+interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; is_concluded: boolean; }
 interface Match { id: string; matchday_id: string; home_team_id: string; away_team_id: string; match_date: string; home_score: number | null; away_score: number | null; is_finished: boolean; home_team?: Team; away_team?: Team; }
 
 export default function Admin() {
@@ -133,6 +133,12 @@ export default function Admin() {
   const toggleMatchdayOpen = async (id: string, isOpen: boolean) => {
     await supabase.from('matchdays').update({ is_open: !isOpen }).eq('id', id);
     fetchMatchdays();
+  };
+
+  const toggleMatchdayConcluded = async (id: string, isConcluded: boolean) => {
+    await supabase.from('matchdays').update({ is_concluded: !isConcluded }).eq('id', id);
+    fetchMatchdays();
+    toast({ title: !isConcluded ? 'Jornada marcada como concluida' : 'Jornada desmarcada' });
   };
 
   const resetMatchdayResults = async () => {
@@ -324,9 +330,26 @@ export default function Admin() {
               <div key={md.id} className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                   <span className="font-medium text-foreground text-lg">{md.name}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-muted-foreground">{md.is_open ? 'Abierta' : 'Cerrada'}</span>
-                    <Switch checked={md.is_open} onCheckedChange={() => toggleMatchdayOpen(md.id, md.is_open)} />
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {/* Abierta/Cerrada toggle */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{md.is_open ? 'Abierta' : 'Cerrada'}</span>
+                      <Switch checked={md.is_open} onCheckedChange={() => toggleMatchdayOpen(md.id, md.is_open)} />
+                    </div>
+                    
+                    {/* Concluida toggle */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm flex items-center gap-1 ${md.is_concluded ? 'text-secondary font-medium' : 'text-muted-foreground'}`}>
+                        {md.is_concluded && <CheckCircle2 className="w-4 h-4" />}
+                        Concluida
+                      </span>
+                      <Switch 
+                        checked={md.is_concluded} 
+                        onCheckedChange={() => toggleMatchdayConcluded(md.id, md.is_concluded)}
+                        className="data-[state=checked]:bg-secondary"
+                      />
+                    </div>
+                    
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button variant="ghost" size="icon" onClick={() => setEditingMatchday(md)}><Pencil className="w-4 h-4" /></Button>
@@ -386,8 +409,8 @@ export default function Admin() {
                   )}
                 </div>
                 
-                {/* Champions section */}
-                <MatchdayChampions matchdayId={md.id} matchdayName={md.name} />
+                {/* Champions section - only show when concluded */}
+                <MatchdayChampions matchdayId={md.id} matchdayName={md.name} isConcluded={md.is_concluded} />
               </div>
             ))}
           </div>

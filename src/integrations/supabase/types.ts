@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           end_date: string | null
           id: string
+          is_concluded: boolean
           is_open: boolean
           name: string
           start_date: string
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           end_date?: string | null
           id?: string
+          is_concluded?: boolean
           is_open?: boolean
           name: string
           start_date: string
@@ -40,6 +42,7 @@ export type Database = {
           created_at?: string
           end_date?: string | null
           id?: string
+          is_concluded?: boolean
           is_open?: boolean
           name?: string
           start_date?: string

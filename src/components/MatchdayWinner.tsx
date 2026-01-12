@@ -1,6 +1,7 @@
-import { Trophy, Crown, Sparkles, Star } from 'lucide-react';
+import { Trophy, Crown, Sparkles, Star, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 
 interface WinnerData {
   display_name: string;
@@ -15,8 +16,8 @@ interface MatchdayWinnerProps {
 }
 
 export default function MatchdayWinner({ matchdayId, matchdayName }: MatchdayWinnerProps) {
-  const [winner, setWinner] = useState<WinnerData | null>(null);
-  const [isFinished, setIsFinished] = useState(false);
+  const [winners, setWinners] = useState<WinnerData[]>([]);
+  const [isConcluded, setIsConcluded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -24,41 +25,44 @@ export default function MatchdayWinner({ matchdayId, matchdayName }: MatchdayWin
   }, [matchdayId]);
 
   const checkMatchdayStatus = async () => {
-    // Check if all matches in this matchday are finished
-    const { data: matches } = await supabase
-      .from('matches')
-      .select('is_finished')
-      .eq('matchday_id', matchdayId);
+    // Check if matchday is marked as concluded
+    const { data: matchday } = await supabase
+      .from('matchdays')
+      .select('is_concluded')
+      .eq('id', matchdayId)
+      .single();
 
-    if (matches && matches.length > 0) {
-      const allFinished = matches.every(m => m.is_finished);
-      setIsFinished(allFinished);
+    if (matchday?.is_concluded) {
+      setIsConcluded(true);
+      
+      // Get the winners
+      const { data: leaderboard } = await supabase.rpc('get_matchday_leaderboard', { 
+        p_matchday_id: matchdayId 
+      });
 
-      if (allFinished) {
-        // Get the winner
-        const { data: leaderboard } = await supabase.rpc('get_matchday_leaderboard', { 
-          p_matchday_id: matchdayId 
-        });
-
-        if (leaderboard && leaderboard.length > 0) {
-          const topEntry = leaderboard[0] as any;
-          if (topEntry.total_predictions > 0) {
-            setWinner({
-              display_name: topEntry.display_name,
-              total_points: topEntry.total_points,
-              exact_results: topEntry.exact_results,
-              total_predictions: topEntry.total_predictions
-            });
-          }
+      if (leaderboard && leaderboard.length > 0) {
+        const participants = (leaderboard as any[]).filter(e => e.total_predictions > 0);
+        
+        if (participants.length > 0) {
+          const maxPoints = participants[0].total_points;
+          const champs = participants.filter(p => p.total_points === maxPoints);
+          setWinners(champs.map(c => ({
+            display_name: c.display_name,
+            total_points: c.total_points,
+            exact_results: c.exact_results,
+            total_predictions: c.total_predictions
+          })));
         }
       }
     }
     setLoading(false);
   };
 
-  if (loading || !isFinished || !winner) {
+  if (loading || !isConcluded || winners.length === 0) {
     return null;
   }
+
+  const isTie = winners.length > 1;
 
   return (
     <div className="relative overflow-hidden rounded-2xl mb-6 animate-fade-in">
@@ -113,25 +117,37 @@ export default function MatchdayWinner({ matchdayId, matchdayName }: MatchdayWin
         </div>
 
         {/* Title */}
-        <p className="text-xs font-semibold uppercase tracking-widest text-white/80 mb-1">
-          🏆 Campeón de {matchdayName} 🏆
-        </p>
+        <div className="flex items-center justify-center gap-2 mb-1">
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/80">
+            🏆 {isTie ? `Campeones de ${matchdayName}` : `Campeón de ${matchdayName}`} 🏆
+          </p>
+          {isTie && (
+            <Badge className="bg-white/20 text-white border-white/30 text-xs">
+              <Users className="w-3 h-3 mr-1" />
+              Empate
+            </Badge>
+          )}
+        </div>
 
-        {/* Winner name */}
-        <h2 className="text-3xl md:text-4xl font-display text-white drop-shadow-lg mb-3">
-          {winner.display_name}
-        </h2>
+        {/* Winner names */}
+        <div className="space-y-2 mb-3">
+          {winners.map((winner, idx) => (
+            <h2 key={idx} className="text-2xl md:text-3xl font-display text-white drop-shadow-lg">
+              {winner.display_name}
+            </h2>
+          ))}
+        </div>
 
-        {/* Stats */}
+        {/* Stats (show first winner's stats, they're all the same for ties) */}
         <div className="flex items-center justify-center gap-6 text-white/90">
           <div className="flex items-center gap-2">
             <Trophy className="w-5 h-5" />
-            <span className="text-xl font-bold">{winner.total_points}</span>
+            <span className="text-xl font-bold">{winners[0].total_points}</span>
             <span className="text-sm opacity-80">pts</span>
           </div>
           <div className="h-6 w-px bg-white/30" />
           <div className="flex items-center gap-2">
-            <span className="text-xl font-bold">{winner.exact_results}</span>
+            <span className="text-xl font-bold">{winners[0].exact_results}</span>
             <span className="text-sm opacity-80">exactos</span>
           </div>
         </div>
