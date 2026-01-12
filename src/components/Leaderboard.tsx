@@ -4,6 +4,8 @@ import { Trophy, Medal, Target, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import MatchdayWinner from './MatchdayWinner';
+import SeasonLeader from './SeasonLeader';
 
 type CompetitionType = 'weekly' | 'season' | 'both';
 
@@ -178,6 +180,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
         </TabsList>
 
         <TabsContent value="season" className="mt-4">
+          <SeasonLeader />
           {entries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Trophy className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -199,6 +202,13 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
               ))}
             </SelectContent>
           </Select>
+
+          {selectedMatchday && (
+            <MatchdayWinner 
+              matchdayId={selectedMatchday} 
+              matchdayName={matchdays.find(m => m.id === selectedMatchday)?.name || 'Jornada'}
+            />
+          )}
 
           {matchdayEntries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
