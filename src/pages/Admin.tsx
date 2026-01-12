@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getSafeErrorMessage } from '@/lib/errorUtils';
+import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -98,7 +99,7 @@ export default function Admin() {
     if (!newMatchdayName) return;
     const { error } = await supabase.from('matchdays').insert({ name: newMatchdayName, start_date: new Date().toISOString() });
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Jornada creada' }); setNewMatchdayName(''); fetchMatchdays(); }
@@ -114,7 +115,7 @@ export default function Admin() {
     }
     const { error } = await supabase.from('matchdays').update(updateData).eq('id', editingMatchday.id);
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Jornada actualizada' }); setEditingMatchday(null); fetchMatchdays(); }
@@ -124,7 +125,7 @@ export default function Admin() {
     if (!confirm('¿Eliminar esta jornada y todos sus partidos?')) return;
     const { error } = await supabase.from('matchdays').delete().eq('id', id);
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Jornada eliminada' }); fetchMatchdays(); }
@@ -161,7 +162,7 @@ export default function Admin() {
       toast({ title: 'Jornada reseteada', description: 'Resultados y puntos eliminados' });
       fetchMatches();
     } catch (error) {
-      console.error('Reset error:', error);
+      logger.error('Reset error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     setResetting(false);
@@ -176,7 +177,7 @@ export default function Admin() {
       matchday_id: selectedMatchday, home_team_id: newHomeTeam, away_team_id: newAwayTeam, match_date: matchDateISO
     });
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Partido agregado' }); setNewHomeTeam(''); setNewAwayTeam(''); setNewMatchDate(''); fetchMatches(); }
@@ -192,7 +193,7 @@ export default function Admin() {
       match_date: matchDateISO
     }).eq('id', editingMatch.id);
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Partido actualizado' }); setEditingMatch(null); fetchMatches(); }
@@ -202,7 +203,7 @@ export default function Admin() {
     if (!confirm('¿Eliminar este partido?')) return;
     const { error } = await supabase.from('matches').delete().eq('id', id);
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Partido eliminado' }); fetchMatches(); }
@@ -254,7 +255,7 @@ export default function Admin() {
       toast({ title: 'Sincronización completada', description: result.message });
       fetchMatches();
     } catch (error) {
-      console.error('Sync error:', error);
+      logger.error('Sync error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     setSyncing(false);
@@ -271,7 +272,7 @@ export default function Admin() {
       .upload(fileName, file, { upsert: true });
 
     if (uploadError) {
-      console.error('Storage error:', uploadError);
+      logger.error('Storage error:', uploadError);
       toast({ title: 'Error al subir', description: getSafeErrorMessage(uploadError), variant: 'destructive' });
       setUploadingLogo(false);
       return;
@@ -293,7 +294,7 @@ export default function Admin() {
       short_name: editingTeam.short_name 
     }).eq('id', editingTeam.id);
     if (error) {
-      console.error('Database error:', error);
+      logger.error('Database error:', error);
       toast({ title: 'Error', description: getSafeErrorMessage(error), variant: 'destructive' });
     }
     else { toast({ title: 'Equipo actualizado' }); fetchTeams(); }

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import Header from "@/components/Header";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Quiniela from "./pages/Quiniela";
@@ -26,9 +27,23 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/quiniela" element={<Quiniela />} />
+              <Route 
+                path="/quiniela" 
+                element={
+                  <ProtectedRoute>
+                    <Quiniela />
+                  </ProtectedRoute>
+                } 
+              />
               <Route path="/tabla" element={<Tabla />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute requireAdmin>
+                    <Admin />
+                  </ProtectedRoute>
+                } 
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
