@@ -14,6 +14,7 @@ import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Tras
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
+import MatchdayChampions from '@/components/admin/MatchdayChampions';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
 interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; }
@@ -384,6 +385,9 @@ export default function Admin() {
                     </span>
                   )}
                 </div>
+                
+                {/* Champions section */}
+                <MatchdayChampions matchdayId={md.id} matchdayName={md.name} />
               </div>
             ))}
           </div>
