@@ -11,11 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock, CheckCircle2 } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock, CheckCircle2, UserCheck } from 'lucide-react';
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
 import MatchdayChampions from '@/components/admin/MatchdayChampions';
+import AdminDelegatePredictions from '@/components/admin/AdminDelegatePredictions';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
 interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; is_concluded: boolean; }
@@ -316,6 +317,7 @@ export default function Admin() {
           <TabsTrigger value="quick-matches"><Zap className="w-4 h-4 mr-2" />Carga Rápida</TabsTrigger>
           <TabsTrigger value="results"><RefreshCw className="w-4 h-4 mr-2" />Resultados</TabsTrigger>
           <TabsTrigger value="teams"><Shield className="w-4 h-4 mr-2" />Equipos</TabsTrigger>
+          <TabsTrigger value="delegate"><UserCheck className="w-4 h-4 mr-2" />Capturar Por Otro</TabsTrigger>
           <TabsTrigger value="predictions"><FileText className="w-4 h-4 mr-2" />Predicciones</TabsTrigger>
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Usuarios</TabsTrigger>
         </TabsList>
@@ -586,6 +588,11 @@ export default function Admin() {
         {/* CARGA RÁPIDA */}
         <TabsContent value="quick-matches" className="card-sports p-6">
           <AdminQuickMatches />
+        </TabsContent>
+
+        {/* CAPTURAR POR OTRO */}
+        <TabsContent value="delegate" className="card-sports p-6">
+          <AdminDelegatePredictions />
         </TabsContent>
 
         {/* PREDICCIONES */}
