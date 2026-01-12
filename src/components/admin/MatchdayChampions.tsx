@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Crown, CheckCircle2, Clock, Users } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Trophy, Crown, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface ChampionData {
@@ -15,72 +14,65 @@ interface ChampionData {
 interface MatchdayChampionsProps {
   matchdayId: string;
   matchdayName: string;
+  isConcluded: boolean;
 }
 
-export default function MatchdayChampions({ matchdayId, matchdayName }: MatchdayChampionsProps) {
+export default function MatchdayChampions({ matchdayId, matchdayName, isConcluded }: MatchdayChampionsProps) {
   const [champions, setChampions] = useState<ChampionData[]>([]);
   const [seasonLeaders, setSeasonLeaders] = useState<ChampionData[]>([]);
-  const [matchStatus, setMatchStatus] = useState<{ total: number; finished: number }>({ total: 0, finished: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-  }, [matchdayId]);
+    if (isConcluded) {
+      fetchChampions();
+    } else {
+      setChampions([]);
+      setSeasonLeaders([]);
+      setLoading(false);
+    }
+  }, [matchdayId, isConcluded]);
 
-  const fetchData = async () => {
+  const fetchChampions = async () => {
     setLoading(true);
     
-    // Get match status
-    const { data: matches } = await supabase
-      .from('matches')
-      .select('is_finished')
-      .eq('matchday_id', matchdayId);
+    // Get matchday leaderboard
+    const { data: leaderboard } = await supabase.rpc('get_matchday_leaderboard', { 
+      p_matchday_id: matchdayId 
+    });
 
-    if (matches) {
-      const total = matches.length;
-      const finished = matches.filter(m => m.is_finished).length;
-      setMatchStatus({ total, finished });
+    if (leaderboard && leaderboard.length > 0) {
+      // Filter participants with predictions
+      const participants = (leaderboard as any[]).filter(e => e.total_predictions > 0);
+      
+      if (participants.length > 0) {
+        // Find max points
+        const maxPoints = participants[0].total_points;
+        // Get all champions (ties)
+        const champs = participants.filter(p => p.total_points === maxPoints);
+        setChampions(champs);
+      }
+    }
 
-      // Only fetch champions if all matches are finished
-      if (total > 0 && finished === total) {
-        // Get matchday leaderboard
-        const { data: leaderboard } = await supabase.rpc('get_matchday_leaderboard', { 
-          p_matchday_id: matchdayId 
-        });
-
-        if (leaderboard && leaderboard.length > 0) {
-          // Filter participants with predictions
-          const participants = (leaderboard as any[]).filter(e => e.total_predictions > 0);
-          
-          if (participants.length > 0) {
-            // Find max points
-            const maxPoints = participants[0].total_points;
-            // Get all champions (ties)
-            const champs = participants.filter(p => p.total_points === maxPoints);
-            setChampions(champs);
-          }
-        }
-
-        // Get season leaders
-        const { data: seasonData } = await supabase.rpc('get_leaderboard');
-        if (seasonData && seasonData.length > 0) {
-          const seasonParticipants = (seasonData as any[]).filter(
-            e => (e.competition_type === 'season' || e.competition_type === 'both') && e.total_predictions > 0
-          );
-          
-          if (seasonParticipants.length > 0) {
-            const maxSeasonPoints = seasonParticipants[0].total_points;
-            const leaders = seasonParticipants.filter(p => p.total_points === maxSeasonPoints);
-            setSeasonLeaders(leaders);
-          }
-        }
+    // Get season leaders
+    const { data: seasonData } = await supabase.rpc('get_leaderboard');
+    if (seasonData && seasonData.length > 0) {
+      const seasonParticipants = (seasonData as any[]).filter(
+        e => (e.competition_type === 'season' || e.competition_type === 'both') && e.total_predictions > 0
+      );
+      
+      if (seasonParticipants.length > 0) {
+        const maxSeasonPoints = seasonParticipants[0].total_points;
+        const leaders = seasonParticipants.filter(p => p.total_points === maxSeasonPoints);
+        setSeasonLeaders(leaders);
       }
     }
     
     setLoading(false);
   };
 
-  const isComplete = matchStatus.total > 0 && matchStatus.finished === matchStatus.total;
+  if (!isConcluded) {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -92,36 +84,8 @@ export default function MatchdayChampions({ matchdayId, matchdayName }: Matchday
 
   return (
     <div className="mt-3 space-y-3">
-      {/* Status indicator */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Checkbox 
-            id={`concluded-${matchdayId}`}
-            checked={isComplete}
-            disabled
-            className={isComplete ? 'data-[state=checked]:bg-primary data-[state=checked]:border-primary' : ''}
-          />
-          <label 
-            htmlFor={`concluded-${matchdayId}`}
-            className={`text-sm font-medium ${isComplete ? 'text-primary' : 'text-muted-foreground'}`}
-          >
-            {isComplete ? (
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" />
-                Jornada concluida
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <Clock className="w-4 h-4" />
-                {matchStatus.finished}/{matchStatus.total} partidos finalizados
-              </span>
-            )}
-          </label>
-        </div>
-      </div>
-
-      {/* Champions section - only show if complete */}
-      {isComplete && champions.length > 0 && (
+      {/* Champions section */}
+      {champions.length > 0 && (
         <div className="p-4 rounded-xl border-2 border-secondary/50 bg-gradient-to-r from-secondary/10 via-secondary/5 to-secondary/10">
           <div className="flex items-center gap-2 mb-3">
             <Crown className="w-5 h-5 text-secondary" />
@@ -137,7 +101,7 @@ export default function MatchdayChampions({ matchdayId, matchdayName }: Matchday
           </div>
           
           <div className="space-y-2">
-            {champions.map((champ, idx) => (
+            {champions.map((champ) => (
               <div 
                 key={champ.user_id}
                 className="flex items-center justify-between bg-card/50 rounded-lg p-3"
@@ -159,8 +123,8 @@ export default function MatchdayChampions({ matchdayId, matchdayName }: Matchday
         </div>
       )}
 
-      {/* Season leaders - only show if complete and there are season participants */}
-      {isComplete && seasonLeaders.length > 0 && (
+      {/* Season leaders */}
+      {seasonLeaders.length > 0 && (
         <div className="p-4 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10">
           <div className="flex items-center gap-2 mb-3">
             <Trophy className="w-5 h-5 text-primary" />
@@ -198,7 +162,7 @@ export default function MatchdayChampions({ matchdayId, matchdayName }: Matchday
       )}
 
       {/* No season participants message */}
-      {isComplete && seasonLeaders.length === 0 && champions.length > 0 && (
+      {seasonLeaders.length === 0 && champions.length > 0 && (
         <p className="text-xs text-muted-foreground italic">
           Sin participantes en formato Temporada para esta jornada
         </p>
