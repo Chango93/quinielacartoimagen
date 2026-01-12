@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getSafeErrorMessage } from '@/lib/errorUtils';
+import { logger } from '@/lib/logger';
 import { Trophy, Mail, Lock, User, Loader2, ArrowLeft } from 'lucide-react';
 import { z } from 'zod';
 
@@ -98,7 +99,7 @@ export default function Auth() {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
-          console.error('Auth error:', error);
+          logger.error('Auth error:', error);
           toast({
             title: 'Error de acceso',
             description: getSafeErrorMessage(error),
@@ -114,7 +115,7 @@ export default function Auth() {
       } else {
         const { error } = await signUp(email, password, displayName);
         if (error) {
-          console.error('Auth error:', error);
+          logger.error('Auth error:', error);
           toast({
             title: 'Error de registro',
             description: getSafeErrorMessage(error),
