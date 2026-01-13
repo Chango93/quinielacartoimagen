@@ -80,7 +80,13 @@ export default function Admin() {
 
   const fetchMatchdays = async () => {
     const { data } = await supabase.from('matchdays').select('*').order('start_date', { ascending: false });
-    if (data) { setMatchdays(data); if (data[0]) setSelectedMatchday(data[0].id); }
+    if (data) { 
+      setMatchdays(data);
+      // Priorizar la jornada vigente (is_current), si no hay, usar la más reciente
+      const currentMatchday = data.find(m => m.is_current);
+      const defaultMatchday = currentMatchday || data[0];
+      if (defaultMatchday) setSelectedMatchday(defaultMatchday.id);
+    }
     setLoadingData(false);
   };
 
