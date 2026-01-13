@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MatchCard from '@/components/MatchCard';
+import { PredictionConfirmDialog } from '@/components/PredictionConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Loader2, Calendar } from 'lucide-react';
@@ -24,6 +25,7 @@ export default function Quiniela() {
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [loadingData, setLoadingData] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) navigate('/auth');
@@ -152,9 +154,22 @@ export default function Quiniela() {
             ))}
           </div>
           {isOpen && (
-            <Button onClick={savePredictions} disabled={saving} className="w-full btn-hero">
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5 mr-2" />Guardar Quiniela</>}
-            </Button>
+            <>
+              <Button onClick={() => setConfirmOpen(true)} disabled={saving} className="w-full btn-hero">
+                {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5 mr-2" />Guardar Quiniela</>}
+              </Button>
+              <PredictionConfirmDialog
+                open={confirmOpen}
+                onOpenChange={setConfirmOpen}
+                onConfirm={() => {
+                  setConfirmOpen(false);
+                  savePredictions();
+                }}
+                matches={matches}
+                predictions={predictions}
+                saving={saving}
+              />
+            </>
           )}
         </>
       )}

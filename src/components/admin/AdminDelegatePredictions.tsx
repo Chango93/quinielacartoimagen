@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, UserCheck, Calendar } from 'lucide-react';
 import MatchCard from '@/components/MatchCard';
+import { PredictionConfirmDialog } from '@/components/PredictionConfirmDialog';
 
 interface Profile {
   id: string;
@@ -53,6 +54,7 @@ export default function AdminDelegatePredictions() {
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -268,7 +270,7 @@ export default function AdminDelegatePredictions() {
           </div>
           
           <Button 
-            onClick={savePredictions} 
+            onClick={() => setConfirmOpen(true)} 
             disabled={saving || !selectedUserId} 
             className="w-full btn-hero"
           >
@@ -281,6 +283,18 @@ export default function AdminDelegatePredictions() {
               </>
             )}
           </Button>
+          
+          <PredictionConfirmDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            onConfirm={() => {
+              setConfirmOpen(false);
+              savePredictions();
+            }}
+            matches={matches}
+            predictions={predictions}
+            saving={saving}
+          />
         </>
       )}
     </div>
