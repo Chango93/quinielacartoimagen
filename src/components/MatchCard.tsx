@@ -61,7 +61,9 @@ export default function MatchCard({
   }, [prediction]);
 
   const handleScoreChange = (isHome: boolean, value: string) => {
-    const numValue = value === '' ? '' : Math.max(0, Math.min(99, parseInt(value) || 0)).toString();
+    // Only allow single digit (0-9) - realistic for football
+    const sanitized = value.replace(/[^0-9]/g, '').slice(0, 1);
+    const numValue = sanitized === '' ? '' : Math.max(0, Math.min(9, parseInt(sanitized) || 0)).toString();
     
     if (isHome) {
       setHomeScore(numValue);
@@ -157,9 +159,10 @@ export default function MatchCard({
             <>
               <Input
                 ref={homeInputRef}
-                type="number"
-                min="0"
-                max="99"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]"
+                maxLength={1}
                 value={homeScore}
                 onChange={(e) => handleScoreChange(true, e.target.value)}
                 className={`score-input ${homeScore !== '' ? 'border-primary bg-primary/10' : ''}`}
@@ -168,9 +171,10 @@ export default function MatchCard({
               <span className="text-muted-foreground font-bold text-xl">:</span>
               <Input
                 ref={awayInputRef}
-                type="number"
-                min="0"
-                max="99"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]"
+                maxLength={1}
                 value={awayScore}
                 onChange={(e) => handleScoreChange(false, e.target.value)}
                 className={`score-input ${awayScore !== '' ? 'border-primary bg-primary/10' : ''}`}
