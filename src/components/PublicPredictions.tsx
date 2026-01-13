@@ -57,7 +57,10 @@ export default function PublicPredictions() {
     
     if (data && data.length > 0) {
       setMatchdays(data);
-      setSelectedMatchday(data[0].id);
+      // Priorizar jornada marcada como vigente (is_current), si está cerrada
+      const currentMatchday = data.find(m => m.is_current);
+      const selected = currentMatchday || data[0];
+      setSelectedMatchday(selected.id);
     }
     setLoading(false);
   };
