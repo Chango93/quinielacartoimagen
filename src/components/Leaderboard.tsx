@@ -21,6 +21,7 @@ interface LeaderboardEntry {
 interface Matchday {
   id: string;
   name: string;
+  is_current: boolean;
 }
 
 interface LeaderboardProps {
@@ -65,15 +66,15 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
   const fetchMatchdays = async () => {
     const { data } = await supabase
       .from('matchdays')
-      .select('id, name, is_open, start_date')
+      .select('id, name, is_current')
       .order('start_date', { ascending: false });
     
     if (data && data.length > 0) {
       setMatchdays(data);
-      // Priorizar: 1) jornada abierta, 2) la más reciente cerrada
-      const openMatchday = data.find(m => m.is_open);
-      const mostRecent = openMatchday || data[0];
-      setSelectedMatchday(mostRecent.id);
+      // Priorizar la jornada marcada como vigente (is_current)
+      const currentMatchday = data.find(m => m.is_current);
+      const selected = currentMatchday || data[0];
+      setSelectedMatchday(selected.id);
     }
   };
 

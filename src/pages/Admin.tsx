@@ -19,7 +19,7 @@ import MatchdayChampions from '@/components/admin/MatchdayChampions';
 import AdminDelegatePredictions from '@/components/admin/AdminDelegatePredictions';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
-interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; is_concluded: boolean; }
+interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; is_concluded: boolean; is_current: boolean; }
 interface Match { id: string; matchday_id: string; home_team_id: string; away_team_id: string; match_date: string; home_score: number | null; away_score: number | null; is_finished: boolean; home_team?: Team; away_team?: Team; }
 
 export default function Admin() {
@@ -141,6 +141,12 @@ export default function Admin() {
     await supabase.from('matchdays').update({ is_concluded: !isConcluded }).eq('id', id);
     fetchMatchdays();
     toast({ title: !isConcluded ? 'Jornada marcada como concluida' : 'Jornada desmarcada' });
+  };
+
+  const toggleMatchdayCurrent = async (id: string) => {
+    await supabase.from('matchdays').update({ is_current: true }).eq('id', id);
+    fetchMatchdays();
+    toast({ title: 'Jornada vigente actualizada' });
   };
 
   const resetMatchdayResults = async () => {
@@ -334,6 +340,20 @@ export default function Admin() {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                   <span className="font-medium text-foreground text-lg">{md.name}</span>
                   <div className="flex items-center gap-4 flex-wrap">
+                    {/* Vigente toggle */}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm flex items-center gap-1 ${md.is_current ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                        {md.is_current && <Trophy className="w-4 h-4" />}
+                        Vigente
+                      </span>
+                      <Switch 
+                        checked={md.is_current} 
+                        onCheckedChange={() => toggleMatchdayCurrent(md.id)}
+                        className="data-[state=checked]:bg-primary"
+                        disabled={md.is_current}
+                      />
+                    </div>
+                    
                     {/* Abierta/Cerrada toggle */}
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">{md.is_open ? 'Abierta' : 'Cerrada'}</span>
