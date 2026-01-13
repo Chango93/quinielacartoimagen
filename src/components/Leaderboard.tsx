@@ -63,10 +63,17 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
   };
 
   const fetchMatchdays = async () => {
-    const { data } = await supabase.from('matchdays').select('id, name').order('start_date', { ascending: false });
-    if (data) {
+    const { data } = await supabase
+      .from('matchdays')
+      .select('id, name, is_open, start_date')
+      .order('start_date', { ascending: false });
+    
+    if (data && data.length > 0) {
       setMatchdays(data);
-      if (data[0]) setSelectedMatchday(data[0].id);
+      // Priorizar: 1) jornada abierta, 2) la más reciente cerrada
+      const openMatchday = data.find(m => m.is_open);
+      const mostRecent = openMatchday || data[0];
+      setSelectedMatchday(mostRecent.id);
     }
   };
 
