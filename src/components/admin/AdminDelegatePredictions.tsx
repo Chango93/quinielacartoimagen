@@ -232,13 +232,13 @@ export default function AdminDelegatePredictions() {
 
       {/* Status indicator */}
       {selectedProfile && (
-        <div className="flex items-center gap-2 p-3 bg-secondary/20 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-secondary/20 rounded-lg flex-wrap">
           <UserCheck className="w-5 h-5 text-secondary" />
           <span className="text-foreground font-medium">
             Capturando para: {selectedProfile.display_name || selectedProfile.email}
           </span>
           {!isOpen && (
-            <span className="ml-auto text-destructive text-sm">(Jornada cerrada)</span>
+            <span className="ml-auto text-amber-500 text-sm font-medium">(Jornada cerrada - modo admin)</span>
           )}
         </div>
       )}
