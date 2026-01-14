@@ -50,17 +50,19 @@ export default function LiveMatchesBanner() {
       .order('match_date');
 
     if (data) {
-      const now = new Date();
+      // Get current time in Mexico timezone
+      const nowMexico = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
       
       // Live matches: have scores but not finished
       const live = data.filter(m => !m.is_finished);
       
       // Recently finished: finished AND match started more than 1.5 hours ago (match likely over)
-      // AND finished within last 3 hours
+      // AND less than 4 hours ago (still recent)
       const recent = data.filter(m => {
         if (!m.is_finished) return false;
-        const matchDate = new Date(m.match_date);
-        const timeSinceStart = now.getTime() - matchDate.getTime();
+        // Convert match date to Mexico timezone for comparison
+        const matchDateMexico = new Date(new Date(m.match_date).toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+        const timeSinceStart = nowMexico.getTime() - matchDateMexico.getTime();
         const hoursSinceStart = timeSinceStart / (1000 * 60 * 60);
         // Only show if match started 1.5+ hours ago (likely actually finished)
         // and less than 4 hours ago (still recent)
