@@ -285,8 +285,6 @@ serve(async (req) => {
     let notFound = 0;
 
     for (const match of matches || []) {
-      if (match.is_finished) continue;
-      
       const homeTeam = match.home_team as unknown as { name: string; short_name: string };
       const awayTeam = match.away_team as unknown as { name: string; short_name: string };
       
@@ -314,21 +312,31 @@ serve(async (req) => {
         const isFinished = status.includes('finished') || status === 'ft' || status === 'aet' || status === 'pen';
         
         if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
-          console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (status: ${event.strStatus}, finished: ${isFinished})`);
+          // Always update if there's a score, regardless of current is_finished state
+          const needsUpdate = 
+            match.home_score !== homeScore || 
+            match.away_score !== awayScore || 
+            match.is_finished !== isFinished;
           
-          const { error: updateError } = await supabase
-            .from('matches')
-            .update({ 
-              home_score: homeScore, 
-              away_score: awayScore,
-              is_finished: isFinished 
-            })
-            .eq('id', match.id);
+          if (needsUpdate) {
+            console.log(`Updating ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore} (status: ${event.strStatus}, finished: ${isFinished})`);
+            
+            const { error: updateError } = await supabase
+              .from('matches')
+              .update({ 
+                home_score: homeScore, 
+                away_score: awayScore,
+                is_finished: isFinished 
+              })
+              .eq('id', match.id);
 
-          if (updateError) {
-            console.error('Error updating match:', updateError);
+            if (updateError) {
+              console.error('Error updating match:', updateError);
+            } else {
+              updated++;
+            }
           } else {
-            updated++;
+            console.log(`Match already up-to-date: ${homeTeam.name} vs ${awayTeam.name}: ${homeScore}-${awayScore}`);
           }
         } else {
           console.log(`Match found but no scores yet: ${homeTeam.name} vs ${awayTeam.name} (status: ${event.strStatus})`);
