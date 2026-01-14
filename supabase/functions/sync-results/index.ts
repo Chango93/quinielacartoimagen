@@ -364,9 +364,13 @@ serve(async (req) => {
       }
     }
 
-    // Recalculate points if any matches were updated
-    if (updated > 0) {
-      await supabase.rpc('recalculate_matchday_points', { p_matchday_id: matchday_id });
+    // Always recalculate points to ensure they're up-to-date
+    console.log('Recalculating points for matchday...');
+    const { error: rpcError } = await supabase.rpc('recalculate_matchday_points', { p_matchday_id: matchday_id });
+    if (rpcError) {
+      console.error('Error recalculating points:', rpcError);
+    } else {
+      console.log('Points recalculated successfully');
     }
 
     return new Response(JSON.stringify({ 
