@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -39,39 +39,91 @@ export default function AdminPredictions() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchMatchdays();
-  }, []);
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    if (selectedMatchday) {
-      fetchPredictions();
-      fetchMatchdayLeaderboard();
-    }
-  }, [selectedMatchday]);
-
-  const fetchMatchdays = async () => {
+  const fetchMatchdays = useCallback(async () => {
     const { data } = await supabase.from('matchdays').select('*').order('start_date', { ascending: false });
     if (data) {
       setMatchdays(data);
       if (data[0]) setSelectedMatchday(data[0].id);
     }
     setLoading(false);
-  };
+  }, []);
 
-  const fetchPredictions = async () => {
-    const { data, error } = await supabase.rpc('get_matchday_predictions', { p_matchday_id: selectedMatchday });
+  const fetchPredictions = useCallback(async (matchdayId: string) => {
+    const { data, error } = await supabase.rpc('get_matchday_predictions', { p_matchday_id: matchdayId });
     if (!error && data) {
       setPredictions(data as PredictionRow[]);
     }
-  };
+  }, []);
 
-  const fetchMatchdayLeaderboard = async () => {
-    const { data, error } = await supabase.rpc('get_matchday_leaderboard', { p_matchday_id: selectedMatchday });
+  const fetchMatchdayLeaderboard = useCallback(async (matchdayId: string) => {
+    const { data, error } = await supabase.rpc('get_matchday_leaderboard', { p_matchday_id: matchdayId });
     if (!error && data) {
       setLeaderboard(data as LeaderboardEntry[]);
     }
-  };
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    if (!selectedMatchday) return;
+    await Promise.all([
+      fetchPredictions(selectedMatchday),
+      fetchMatchdayLeaderboard(selectedMatchday),
+    ]);
+  }, [fetchMatchdayLeaderboard, fetchPredictions, selectedMatchday]);
+
+  useEffect(() => {
+    fetchMatchdays();
+  }, [fetchMatchdays]);
+
+  // Live refresh: react to match score changes + points recalculation
+  useEffect(() => {
+    if (!selectedMatchday) return;
+
+    refreshAll();
+
+    const scheduleRefresh = () => {
+      if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+      refreshDebounceRef.current = setTimeout(() => {
+        refreshAll();
+      }, 600);
+    };
+
+    const channel = supabase
+      .channel(`admin-predictions-${selectedMatchday}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `matchday_id=eq.${selectedMatchday}`,
+        },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'predictions',
+        },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    // Backup polling
+    const interval = setInterval(refreshAll, 20000);
+
+    return () => {
+      if (refreshDebounceRef.current) {
+        clearTimeout(refreshDebounceRef.current);
+        refreshDebounceRef.current = null;
+      }
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [refreshAll, selectedMatchday]);
 
   const currentMatchday = matchdays.find(md => md.id === selectedMatchday);
 

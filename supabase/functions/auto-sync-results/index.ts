@@ -353,7 +353,10 @@ serve(async (req) => {
 
     // Recalculate points for affected matchdays
     for (const matchdayId of matchdaysToRecalc) {
-      await supabase.rpc('recalculate_matchday_points', { p_matchday_id: matchdayId });
+      const { error: recalcError } = await supabase.rpc('recalculate_matchday_points', { p_matchday_id: matchdayId });
+      if (recalcError) {
+        console.error('Error recalculating points for matchday', matchdayId, recalcError);
+      }
     }
 
     console.log(`Auto-sync completed: ${updated} updated, ${notFound} not found`);
