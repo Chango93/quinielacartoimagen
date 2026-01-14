@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { ScoreAlertsProvider } from "@/components/ScoreAlertsProvider";
 import Header from "@/components/Header";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import CompetitionTypeSurvey from "@/components/CompetitionTypeSurvey";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Quiniela from "./pages/Quiniela";
@@ -26,6 +27,7 @@ const App = () => (
           <BrowserRouter>
             <div className="min-h-screen">
               <Header />
+              <CompetitionTypeSurvey />
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
