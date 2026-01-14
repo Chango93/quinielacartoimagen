@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, Medal, Target, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +30,17 @@ interface LeaderboardProps {
   showTabs?: boolean;
 }
 
+interface RawPrediction {
+  user_id: string;
+  display_name: string;
+  predicted_home_score: number;
+  predicted_away_score: number;
+  home_score: number | null;
+  away_score: number | null;
+  match_id: string;
+  competition_type?: CompetitionType;
+}
+
 export default function Leaderboard({ limit, showTitle = true, showTabs = true }: LeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [matchdayEntries, setMatchdayEntries] = useState<LeaderboardEntry[]>([]);
@@ -38,22 +49,57 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'season' | 'matchday'>('matchday');
 
-  useEffect(() => {
-    fetchLeaderboard();
-    fetchMatchdays();
+  // Store raw predictions so we can recalculate points client-side on score changes
+  const matchdayPredictionsRef = useRef<RawPrediction[]>([]);
+
+  const calculatePoints = useCallback((predHome: number, predAway: number, realHome: number, realAway: number) => {
+    if (predHome === realHome && predAway === realAway) return 2;
+    const predOutcome = predHome === predAway ? 'draw' : predHome > predAway ? 'home' : 'away';
+    const realOutcome = realHome === realAway ? 'draw' : realHome > realAway ? 'home' : 'away';
+    return predOutcome === realOutcome ? 1 : 0;
   }, []);
 
-  useEffect(() => {
-    if (selectedMatchday) {
-      fetchMatchdayLeaderboard();
-    }
-  }, [selectedMatchday]);
+  const buildLeaderboard = useCallback((rows: RawPrediction[]): LeaderboardEntry[] => {
+    const byUser = new Map<string, LeaderboardEntry>();
 
-  const fetchLeaderboard = async () => {
+    rows.forEach((p) => {
+      const hasScore = p.home_score !== null && p.away_score !== null;
+      const pts = hasScore ? calculatePoints(p.predicted_home_score, p.predicted_away_score, p.home_score!, p.away_score!) : 0;
+
+      const prev = byUser.get(p.user_id) ?? {
+        user_id: p.user_id,
+        display_name: p.display_name,
+        total_points: 0,
+        exact_results: 0,
+        total_predictions: 0,
+        competition_type: p.competition_type ?? 'both',
+      };
+
+      const next: LeaderboardEntry = {
+        ...prev,
+        display_name: prev.display_name || p.display_name,
+        total_points: prev.total_points + pts,
+        exact_results: prev.exact_results + (pts === 2 ? 1 : 0),
+        total_predictions: prev.total_predictions + 1,
+      };
+
+      byUser.set(p.user_id, next);
+    });
+
+    return Array.from(byUser.values())
+      .filter((e) => e.total_predictions > 0)
+      .sort(
+        (a, b) =>
+          b.total_points - a.total_points ||
+          b.exact_results - a.exact_results ||
+          a.display_name.localeCompare(b.display_name)
+      );
+  }, [calculatePoints]);
+
+  const fetchLeaderboard = useCallback(async () => {
     const { data, error } = await supabase.rpc('get_leaderboard');
-    
+
     if (!error && data) {
-      // Filtrar para temporada: solo 'season' o 'both'
       const seasonData = (data as LeaderboardEntry[]).filter(
         e => e.competition_type === 'season' || e.competition_type === 'both'
       );
@@ -61,33 +107,94 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
       setEntries(limitedData);
     }
     setLoading(false);
-  };
+  }, [limit]);
 
-  const fetchMatchdays = async () => {
+  const fetchMatchdays = useCallback(async () => {
     const { data } = await supabase
       .from('matchdays')
       .select('id, name, is_current')
       .order('start_date', { ascending: false });
-    
+
     if (data && data.length > 0) {
       setMatchdays(data);
-      // Priorizar la jornada marcada como vigente (is_current)
       const currentMatchday = data.find(m => m.is_current);
       const selected = currentMatchday || data[0];
       setSelectedMatchday(selected.id);
     }
-  };
+  }, []);
 
-  const fetchMatchdayLeaderboard = async () => {
-    const { data, error } = await supabase.rpc('get_matchday_leaderboard', { p_matchday_id: selectedMatchday });
-    
+  const fetchMatchdayLeaderboard = useCallback(async () => {
+    if (!selectedMatchday) return;
+
+    const { data, error } = await supabase.rpc('get_matchday_predictions', { p_matchday_id: selectedMatchday });
+
     if (!error && data) {
-      // Solo mostrar usuarios que hicieron predicciones en esta jornada
-      const withPredictions = (data as LeaderboardEntry[]).filter(e => e.total_predictions > 0);
-      const limitedData = limit ? withPredictions.slice(0, limit) : withPredictions;
+      const rawPreds = (data as any[]).map((p) => ({
+        user_id: p.user_id,
+        display_name: p.display_name,
+        predicted_home_score: p.predicted_home_score,
+        predicted_away_score: p.predicted_away_score,
+        home_score: p.home_score,
+        away_score: p.away_score,
+        match_id: p.match_id,
+      })) as RawPrediction[];
+
+      matchdayPredictionsRef.current = rawPreds;
+      const lb = buildLeaderboard(rawPreds);
+      const limitedData = limit ? lb.slice(0, limit) : lb;
       setMatchdayEntries(limitedData);
     }
-  };
+  }, [buildLeaderboard, limit, selectedMatchday]);
+
+  useEffect(() => {
+    fetchLeaderboard();
+    fetchMatchdays();
+  }, [fetchLeaderboard, fetchMatchdays]);
+
+  useEffect(() => {
+    if (selectedMatchday) {
+      fetchMatchdayLeaderboard();
+    }
+  }, [fetchMatchdayLeaderboard, selectedMatchday]);
+
+  // Real-time: update scores in cached predictions and recalculate leaderboard
+  useEffect(() => {
+    if (!selectedMatchday) return;
+
+    const channel = supabase
+      .channel(`leaderboard-matches-${selectedMatchday}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `matchday_id=eq.${selectedMatchday}`,
+        },
+        (payload) => {
+          const m = payload.new as any;
+
+          // Update cached predictions with new scores
+          matchdayPredictionsRef.current = matchdayPredictionsRef.current.map((p) =>
+            p.match_id === m.id ? { ...p, home_score: m.home_score, away_score: m.away_score } : p
+          );
+
+          // Rebuild leaderboard
+          const lb = buildLeaderboard(matchdayPredictionsRef.current);
+          const limitedData = limit ? lb.slice(0, limit) : lb;
+          setMatchdayEntries(limitedData);
+        }
+      )
+      .subscribe();
+
+    // Backup polling
+    const interval = setInterval(fetchMatchdayLeaderboard, 20000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [buildLeaderboard, fetchMatchdayLeaderboard, limit, selectedMatchday]);
 
   const getPositionStyle = (position: number) => {
     if (position === 1) return 'position-1';
