@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,25 +36,60 @@ export default function PublicPredictions() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchClosedMatchdays();
+  const calculatePoints = useCallback((predHome: number, predAway: number, realHome: number, realAway: number) => {
+    // Exact result
+    if (predHome === realHome && predAway === realAway) return 2;
+
+    // Correct outcome (win/draw)
+    const predOutcome = predHome === predAway ? 'draw' : predHome > predAway ? 'home' : 'away';
+    const realOutcome = realHome === realAway ? 'draw' : realHome > realAway ? 'home' : 'away';
+    return predOutcome === realOutcome ? 1 : 0;
   }, []);
 
-  useEffect(() => {
-    if (selectedMatchday) {
-      fetchPredictions();
-      fetchMatchdayLeaderboard();
-    }
-  }, [selectedMatchday]);
+  const buildLeaderboard = useCallback((rows: PredictionRow[]): LeaderboardEntry[] => {
+    const byUser = new Map<string, LeaderboardEntry>();
 
-  const fetchClosedMatchdays = async () => {
+    rows.forEach((p) => {
+      const hasScore = p.home_score !== null && p.away_score !== null;
+      const pts = hasScore ? calculatePoints(p.predicted_home_score, p.predicted_away_score, p.home_score!, p.away_score!) : 0;
+
+      const prev = byUser.get(p.user_id) ?? {
+        user_id: p.user_id,
+        display_name: p.display_name,
+        total_points: 0,
+        exact_results: 0,
+        total_predictions: 0,
+      };
+
+      const next: LeaderboardEntry = {
+        ...prev,
+        display_name: prev.display_name || p.display_name,
+        total_points: prev.total_points + pts,
+        exact_results: prev.exact_results + (pts === 2 ? 1 : 0),
+        total_predictions: prev.total_predictions + 1,
+      };
+
+      byUser.set(p.user_id, next);
+    });
+
+    return Array.from(byUser.values())
+      .filter((e) => e.total_predictions > 0)
+      .sort(
+        (a, b) =>
+          b.total_points - a.total_points ||
+          b.exact_results - a.exact_results ||
+          a.display_name.localeCompare(b.display_name)
+      );
+  }, [calculatePoints]);
+
+  const fetchClosedMatchdays = useCallback(async () => {
     // Solo traer jornadas cerradas (is_open = false)
     const { data } = await supabase
       .from('matchdays')
       .select('*')
       .eq('is_open', false)
       .order('start_date', { ascending: false });
-    
+
     if (data && data.length > 0) {
       setMatchdays(data);
       // Priorizar jornada marcada como vigente (is_current), si está cerrada
@@ -63,23 +98,66 @@ export default function PublicPredictions() {
       setSelectedMatchday(selected.id);
     }
     setLoading(false);
-  };
+  }, []);
 
-  const fetchPredictions = async () => {
+  const fetchPredictions = useCallback(async () => {
+    if (!selectedMatchday) return;
     const { data, error } = await supabase.rpc('get_matchday_predictions', { p_matchday_id: selectedMatchday });
     if (!error && data) {
       setPredictions(data as PredictionRow[]);
     }
-  };
+  }, [selectedMatchday]);
 
-  const fetchMatchdayLeaderboard = async () => {
-    const { data, error } = await supabase.rpc('get_matchday_leaderboard', { p_matchday_id: selectedMatchday });
-    if (!error && data) {
-      // Solo mostrar usuarios con predicciones
-      const withPredictions = (data as LeaderboardEntry[]).filter(e => e.total_predictions > 0);
-      setLeaderboard(withPredictions);
+  useEffect(() => {
+    fetchClosedMatchdays();
+  }, [fetchClosedMatchdays]);
+
+  useEffect(() => {
+    if (selectedMatchday) {
+      fetchPredictions();
     }
-  };
+  }, [fetchPredictions, selectedMatchday]);
+
+  // Recalcular leaderboard localmente usando el marcador actual (evita puntos “stale”)
+  useEffect(() => {
+    setLeaderboard(buildLeaderboard(predictions));
+  }, [buildLeaderboard, predictions]);
+
+  // Tiempo real: actualiza marcadores en la tabla y recalcula puntos/leaderboard
+  useEffect(() => {
+    if (!selectedMatchday) return;
+
+    const channel = supabase
+      .channel(`public-predictions-${selectedMatchday}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `matchday_id=eq.${selectedMatchday}`,
+        },
+        (payload) => {
+          const m = payload.new as any;
+          setPredictions((prev) =>
+            prev.map((p) =>
+              p.match_id === m.id
+                ? { ...p, home_score: m.home_score, away_score: m.away_score, is_finished: m.is_finished }
+                : p
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    // Backup polling (por si el realtime tarda)
+    const interval = setInterval(fetchPredictions, 20000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [fetchPredictions, selectedMatchday]);
 
   const currentMatchday = matchdays.find(md => md.id === selectedMatchday);
 
@@ -160,32 +238,35 @@ export default function PublicPredictions() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {predictions.map(p => (
-                <TableRow key={p.prediction_id} className="border-border">
-                  <TableCell className="font-medium text-foreground">{p.display_name}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {p.home_team_name} vs {p.away_team_name}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-foreground">
-                    {p.predicted_home_score}-{p.predicted_away_score}
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-muted-foreground">
-                    {p.home_score !== null && p.away_score !== null 
-                      ? `${p.home_score}-${p.away_score}` 
-                      : '-'}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <span className={`px-2 py-1 rounded text-sm font-bold ${
-                      p.points_awarded === 2 ? 'bg-green-500/20 text-green-400' :
-                      p.points_awarded === 1 ? 'bg-yellow-500/20 text-yellow-400' :
-                      p.points_awarded === 0 ? 'bg-red-500/20 text-red-400' :
-                      'text-muted-foreground'
-                    }`}>
-                      {p.points_awarded !== null ? p.points_awarded : '-'}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {predictions.map(p => {
+                const hasScore = p.home_score !== null && p.away_score !== null;
+                const pts = hasScore ? calculatePoints(p.predicted_home_score, p.predicted_away_score, p.home_score!, p.away_score!) : null;
+
+                return (
+                  <TableRow key={p.prediction_id} className="border-border">
+                    <TableCell className="font-medium text-foreground">{p.display_name}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {p.home_team_name} vs {p.away_team_name}
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-foreground">
+                      {p.predicted_home_score}-{p.predicted_away_score}
+                    </TableCell>
+                    <TableCell className="text-center font-mono text-muted-foreground">
+                      {hasScore ? `${p.home_score}-${p.away_score}` : '-'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className={`px-2 py-1 rounded text-sm font-bold ${
+                        pts === 2 ? 'bg-green-500/20 text-green-400' :
+                        pts === 1 ? 'bg-yellow-500/20 text-yellow-400' :
+                        pts === 0 ? 'bg-red-500/20 text-red-400' :
+                        'text-muted-foreground'
+                      }`}>
+                        {pts !== null ? pts : '-'}
+                      </span>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
