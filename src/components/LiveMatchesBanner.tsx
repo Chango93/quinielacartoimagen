@@ -106,8 +106,8 @@ export default function LiveMatchesBanner() {
       )
       .subscribe();
 
-    // Poll every 30 seconds as backup
-    const interval = setInterval(fetchMatches, 30000);
+    // Poll every 15 seconds as backup for faster updates
+    const interval = setInterval(fetchMatches, 15000);
 
     return () => {
       supabase.removeChannel(channel);
