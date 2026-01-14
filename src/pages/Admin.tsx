@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,17 @@ export default function Admin() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const [activeTab, setActiveTab] = useState<
+    | 'matchdays'
+    | 'matches'
+    | 'quick-matches'
+    | 'results'
+    | 'teams'
+    | 'delegate'
+    | 'predictions'
+    | 'users'
+  >('matchdays');
+
   const [teams, setTeams] = useState<Team[]>([]);
   const [matchdays, setMatchdays] = useState<Matchday[]>([]);
   const [selectedMatchday, setSelectedMatchday] = useState<string>('');
@@ -35,6 +46,10 @@ export default function Admin() {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(false);
+  const [autoSyncIntervalSec, setAutoSyncIntervalSec] = useState<30 | 60 | 120>(60);
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
 
   // Nueva jornada
   const [newMatchdayName, setNewMatchdayName] = useState('');
@@ -250,8 +265,11 @@ export default function Admin() {
     fetchMatches();
   };
 
-  const syncWithApi = async () => {
+  const syncWithApi = async (options?: { silent?: boolean }) => {
     if (!selectedMatchday) return;
+
+    const silent = options?.silent ?? false;
+
     setSyncing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -265,7 +283,12 @@ export default function Admin() {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Error al sincronizar');
-      toast({ title: 'Sincronización completada', description: result.message });
+
+      setLastSyncAt(new Date());
+      if (!silent) {
+        toast({ title: 'Sincronización completada', description: result.message });
+      }
+
       fetchMatches();
     } catch (error) {
       logger.error('Sync error:', error);
