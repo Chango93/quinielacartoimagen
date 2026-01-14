@@ -27,6 +27,29 @@ serve(async (req) => {
   }
 
   try {
+    // Verify cron secret for external cron services
+    const CRON_SECRET = Deno.env.get('CRON_SECRET');
+    if (!CRON_SECRET) {
+      console.error('CRON_SECRET not configured');
+      return new Response(JSON.stringify({ error: 'Server misconfigured' }), { 
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
+    // Accept token via Authorization header or query param
+    const url = new URL(req.url);
+    const queryToken = url.searchParams.get('token');
+    const authHeader = req.headers.get('Authorization');
+    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const providedToken = headerToken || queryToken;
+
+    if (providedToken !== CRON_SECRET) {
+      console.log('Invalid cron token');
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+
     const nowUtc = new Date();
     console.log('Auto-sync started at', nowUtc.toISOString());
 
