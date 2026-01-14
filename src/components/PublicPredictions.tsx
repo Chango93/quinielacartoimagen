@@ -170,7 +170,9 @@ export default function PublicPredictions() {
                     {p.predicted_home_score}-{p.predicted_away_score}
                   </TableCell>
                   <TableCell className="text-center font-mono text-muted-foreground">
-                    {p.is_finished ? `${p.home_score}-${p.away_score}` : '-'}
+                    {p.home_score !== null && p.away_score !== null 
+                      ? `${p.home_score}-${p.away_score}` 
+                      : '-'}
                   </TableCell>
                   <TableCell className="text-center">
                     <span className={`px-2 py-1 rounded text-sm font-bold ${
