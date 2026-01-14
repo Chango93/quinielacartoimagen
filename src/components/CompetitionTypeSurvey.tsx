@@ -10,8 +10,6 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
 import { Calendar, Trophy, Crown, Loader2 } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -28,6 +26,7 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
   const [selectedType, setSelectedType] = useState<CompetitionType | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [currentMatchdayId, setCurrentMatchdayId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -41,9 +40,27 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
     if (!user) return;
 
     try {
+      // Obtener la jornada actual (la última abierta)
+      const { data: matchdays } = await supabase
+        .from('matchdays')
+        .select('id')
+        .eq('is_open', true)
+        .order('start_date', { ascending: false })
+        .limit(1);
+
+      const currentMatchday = matchdays?.[0];
+      if (!currentMatchday) {
+        // Si no hay jornada abierta, no mostrar encuesta
+        setLoading(false);
+        return;
+      }
+
+      setCurrentMatchdayId(currentMatchday.id);
+
+      // Verificar si ya contestó para esta jornada
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('competition_type, has_answered_survey')
+        .select('competition_type, last_survey_matchday_id')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -53,8 +70,14 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
         return;
       }
 
-      // Mostrar encuesta si no tiene perfil o si no ha respondido la encuesta
-      if (!profile || !profile.has_answered_survey) {
+      // Mostrar encuesta si:
+      // 1. No tiene perfil
+      // 2. No ha contestado para la jornada actual
+      if (!profile || profile.last_survey_matchday_id !== currentMatchday.id) {
+        // Pre-seleccionar su preferencia anterior si existe
+        if (profile?.competition_type) {
+          setSelectedType(profile.competition_type);
+        }
         setShowSurvey(true);
       }
     } catch (err) {
@@ -65,7 +88,7 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
   };
 
   const handleSubmit = async () => {
-    if (!selectedType || !user) return;
+    if (!selectedType || !user || !currentMatchdayId) return;
 
     setSubmitting(true);
     try {
@@ -80,7 +103,11 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
         // Actualizar perfil existente
         const { error } = await supabase
           .from('profiles')
-          .update({ competition_type: selectedType, has_answered_survey: true })
+          .update({ 
+            competition_type: selectedType, 
+            has_answered_survey: true,
+            last_survey_matchday_id: currentMatchdayId 
+          })
           .eq('user_id', user.id);
 
         if (error) throw error;
@@ -94,6 +121,7 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
             display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Usuario',
             competition_type: selectedType,
             has_answered_survey: true,
+            last_survey_matchday_id: currentMatchdayId,
           });
 
         if (error) throw error;
@@ -115,6 +143,10 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
       });
     }
     setSubmitting(false);
+  };
+
+  const handleOptionClick = (value: CompetitionType) => {
+    setSelectedType(value);
   };
 
   if (loading || authLoading) return null;
@@ -158,36 +190,27 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
-          <RadioGroup
-            value={selectedType || ''}
-            onValueChange={(value) => setSelectedType(value as CompetitionType)}
-            className="space-y-3"
-          >
-            {options.map((option) => (
-              <div key={option.value} className="relative">
-                <RadioGroupItem
-                  value={option.value}
-                  id={option.value}
-                  className="peer sr-only"
-                />
-                <Label
-                  htmlFor={option.value}
-                  className="flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all
-                    border-border hover:border-primary/50 
-                    peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
-                >
-                  <div className="flex-shrink-0 mt-0.5">
-                    {option.icon}
-                  </div>
-                  <div>
-                    <span className="font-semibold text-foreground">{option.label}</span>
-                    <p className="text-sm text-muted-foreground mt-1">{option.description}</p>
-                  </div>
-                </Label>
+        <div className="py-4 space-y-3">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => handleOptionClick(option.value)}
+              className={`w-full flex items-start gap-4 p-4 rounded-lg border-2 cursor-pointer transition-all text-left
+                ${selectedType === option.value 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-border hover:border-primary/50'
+                }`}
+            >
+              <div className="flex-shrink-0 mt-0.5">
+                {option.icon}
               </div>
-            ))}
-          </RadioGroup>
+              <div>
+                <span className="font-semibold text-foreground">{option.label}</span>
+                <p className="text-sm text-muted-foreground mt-1">{option.description}</p>
+              </div>
+            </button>
+          ))}
         </div>
 
         <Button 

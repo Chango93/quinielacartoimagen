@@ -163,6 +163,7 @@ export type Database = {
           email: string
           has_answered_survey: boolean
           id: string
+          last_survey_matchday_id: string | null
           updated_at: string
           user_id: string
         }
@@ -173,6 +174,7 @@ export type Database = {
           email: string
           has_answered_survey?: boolean
           id?: string
+          last_survey_matchday_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -183,10 +185,19 @@ export type Database = {
           email?: string
           has_answered_survey?: boolean
           id?: string
+          last_survey_matchday_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_last_survey_matchday_id_fkey"
+            columns: ["last_survey_matchday_id"]
+            isOneToOne: false
+            referencedRelation: "matchdays"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teams: {
         Row: {
