@@ -308,8 +308,25 @@ serve(async (req) => {
         
         // Determine if finished based on status
         // Common statuses: "Match Finished", "FT", "NS" (not started), "1H", "2H", "HT", etc.
-        const status = (event.strStatus || '').toLowerCase();
-        const isFinished = status.includes('finished') || status === 'ft' || status === 'aet' || status === 'pen';
+        const status = (event.strStatus || '').toLowerCase().trim();
+        
+        // Consider various finish indicators
+        const finishedStatuses = ['finished', 'ft', 'aet', 'pen', 'full time', 'match finished', 'ended', 'final'];
+        const inProgressStatuses = ['1h', '2h', 'ht', 'halftime', 'half time', 'live', 'in progress'];
+        const notStartedStatuses = ['ns', 'not started', 'scheduled', 'postponed', 'cancelled'];
+        
+        const isExplicitlyFinished = finishedStatuses.some(s => status.includes(s));
+        const isInProgress = inProgressStatuses.some(s => status.includes(s));
+        const isNotStarted = notStartedStatuses.some(s => status.includes(s));
+        
+        // If match has scores and is not in progress or not started, consider it finished
+        // Also check if match date is in the past (more than 3 hours ago)
+        const matchDateTime = new Date(match.match_date).getTime();
+        const threeHoursAgo = Date.now() - (3 * 60 * 60 * 1000);
+        const isPastMatch = matchDateTime < threeHoursAgo;
+        
+        const isFinished = isExplicitlyFinished || 
+          (!isInProgress && !isNotStarted && isPastMatch && homeScore !== null && awayScore !== null);
         
         if (homeScore !== null && awayScore !== null && !isNaN(homeScore) && !isNaN(awayScore)) {
           // Always update if there's a score, regardless of current is_finished state
