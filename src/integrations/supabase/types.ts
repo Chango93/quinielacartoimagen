@@ -161,6 +161,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           email: string
+          has_answered_survey: boolean
           id: string
           updated_at: string
           user_id: string
@@ -170,6 +171,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email: string
+          has_answered_survey?: boolean
           id?: string
           updated_at?: string
           user_id: string
@@ -179,6 +181,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           email?: string
+          has_answered_survey?: boolean
           id?: string
           updated_at?: string
           user_id?: string

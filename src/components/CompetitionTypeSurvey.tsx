@@ -43,7 +43,7 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('competition_type')
+        .select('competition_type, has_answered_survey')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -53,13 +53,10 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
         return;
       }
 
-      // Si no tiene perfil o tiene el valor por defecto 'weekly', mostrar encuesta
-      // El valor 'weekly' es el default de la BD, así que asumimos que no ha contestado
-      // Si queremos ser más precisos, podríamos agregar un campo 'has_answered_survey'
-      if (!profile) {
+      // Mostrar encuesta si no tiene perfil o si no ha respondido la encuesta
+      if (!profile || !profile.has_answered_survey) {
         setShowSurvey(true);
       }
-      // Si ya tiene un perfil, no mostramos la encuesta (ya contestó al menos una vez)
     } catch (err) {
       console.error('Error:', err);
     }
@@ -83,7 +80,7 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
         // Actualizar perfil existente
         const { error } = await supabase
           .from('profiles')
-          .update({ competition_type: selectedType })
+          .update({ competition_type: selectedType, has_answered_survey: true })
           .eq('user_id', user.id);
 
         if (error) throw error;
@@ -96,6 +93,7 @@ export default function CompetitionTypeSurvey({ onCompleted }: CompetitionTypeSu
             email: user.email || '',
             display_name: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Usuario',
             competition_type: selectedType,
+            has_answered_survey: true,
           });
 
         if (error) throw error;
