@@ -266,3 +266,35 @@
     box-shadow: 0 0 30px -5px hsla(150, 60%, 35%, 0.5);
   }
 }
+
+@keyframes pulseSlow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 3s ease-in-out infinite;
+}
+
+/* Goal toast styling */
+.goal-toast {
+  animation: goalBounce 0.5s ease-out;
+}
+
+@keyframes goalBounce {
+  0% {
+    transform: scale(0.8) translateY(-20px);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1) translateY(0);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
