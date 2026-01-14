@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import MatchCard from '@/components/MatchCard';
 import { PredictionConfirmDialog } from '@/components/PredictionConfirmDialog';
+import CompetitionTypeSurvey from '@/components/CompetitionTypeSurvey';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Loader2, Calendar } from 'lucide-react';
@@ -115,6 +116,7 @@ export default function Quiniela() {
 
   return (
     <div className="container py-8 max-w-3xl">
+      <CompetitionTypeSurvey />
       <div className="card-sports p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
