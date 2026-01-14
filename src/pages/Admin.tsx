@@ -533,7 +533,7 @@ export default function Admin() {
               <SelectTrigger className="bg-input border-border flex-1"><SelectValue /></SelectTrigger>
               <SelectContent className="bg-popover border-border z-50">{matchdays.map(md => <SelectItem key={md.id} value={md.id}>{md.name}</SelectItem>)}</SelectContent>
             </Select>
-            <Button onClick={syncWithApi} disabled={syncing || !selectedMatchday} variant="outline" className="gap-2">
+            <Button onClick={() => syncWithApi()} disabled={syncing || !selectedMatchday} variant="outline" className="gap-2">
               {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <CloudDownload className="w-4 h-4" />}
               Sincronizar API
             </Button>
