@@ -51,16 +51,20 @@ export default function LiveMatchesBanner() {
 
     if (data) {
       const now = new Date();
-      const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);
-
+      
       // Live matches: have scores but not finished
       const live = data.filter(m => !m.is_finished);
       
-      // Recently finished: finished within last 3 hours
+      // Recently finished: finished AND match started more than 1.5 hours ago (match likely over)
+      // AND finished within last 3 hours
       const recent = data.filter(m => {
         if (!m.is_finished) return false;
-        const updatedAt = new Date(m.updated_at);
-        return updatedAt >= threeHoursAgo;
+        const matchDate = new Date(m.match_date);
+        const timeSinceStart = now.getTime() - matchDate.getTime();
+        const hoursSinceStart = timeSinceStart / (1000 * 60 * 60);
+        // Only show if match started 1.5+ hours ago (likely actually finished)
+        // and less than 4 hours ago (still recent)
+        return hoursSinceStart >= 1.5 && hoursSinceStart <= 4;
       });
 
       // Check for score changes on live matches (for goal animation)
