@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface MatchPayload {
   id: string;
@@ -16,7 +16,6 @@ interface TeamCache {
 }
 
 export function useScoreAlerts() {
-  const { toast } = useToast();
   const teamsCache = useRef<TeamCache>({});
   const prevScores = useRef<Record<string, { home: number | null; away: number | null }>>({});
 
@@ -53,11 +52,22 @@ export function useScoreAlerts() {
             const homeTeam = teamsCache.current[match.home_team_id]?.short_name || 'Local';
             const awayTeam = teamsCache.current[match.away_team_id]?.short_name || 'Visitante';
             
-            toast({
-              title: '⚽ ¡Gol!',
-              description: `${homeTeam} ${match.home_score ?? 0} - ${match.away_score ?? 0} ${awayTeam}`,
-              duration: 5000,
-            });
+            // Use Sonner for more prominent notifications
+            toast.success(
+              `${homeTeam} ${match.home_score ?? 0} - ${match.away_score ?? 0} ${awayTeam}`,
+              {
+                icon: '⚽',
+                duration: 8000,
+                style: {
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                  color: '#000',
+                  fontWeight: 'bold',
+                  fontSize: '1.1rem',
+                  border: 'none',
+                },
+                className: 'goal-toast',
+              }
+            );
           }
           
           // Update cache
@@ -83,5 +93,5 @@ export function useScoreAlerts() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast]);
+  }, []);
 }
