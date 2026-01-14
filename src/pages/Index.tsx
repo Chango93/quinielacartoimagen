@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import Leaderboard from '@/components/Leaderboard';
+import LiveMatchesBanner from '@/components/LiveMatchesBanner';
 import { Trophy, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 
 interface Matchday {
@@ -55,6 +56,7 @@ export default function Index() {
 
   return (
     <div className="container py-8">
+      <LiveMatchesBanner />
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Columna principal */}
         <div className="lg:col-span-2 space-y-6">
