@@ -88,6 +88,24 @@ export default function Admin() {
     if (isAdmin) { fetchTeams(); fetchMatchdays(); }
   }, [isAdmin]);
 
+  // Auto-sync interval
+  const autoSyncRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (autoSyncEnabled && selectedMatchday) {
+      autoSyncRef.current = setInterval(() => {
+        syncWithApi({ silent: true });
+      }, autoSyncIntervalSec * 1000);
+    }
+
+    return () => {
+      if (autoSyncRef.current) {
+        clearInterval(autoSyncRef.current);
+        autoSyncRef.current = null;
+      }
+    };
+  }, [autoSyncEnabled, autoSyncIntervalSec, selectedMatchday]);
+
   const fetchTeams = async () => {
     const { data } = await supabase.from('teams').select('*').order('name');
     if (data) setTeams(data);
@@ -528,6 +546,41 @@ export default function Admin() {
 
         {/* RESULTADOS */}
         <TabsContent value="results" className="card-sports p-6 space-y-4">
+          {/* Auto-sync controls */}
+          <div className="flex flex-wrap items-center gap-4 p-3 bg-muted/30 rounded-lg border border-border">
+            <div className="flex items-center gap-2">
+              <Switch 
+                checked={autoSyncEnabled} 
+                onCheckedChange={setAutoSyncEnabled}
+                id="auto-sync"
+              />
+              <label htmlFor="auto-sync" className="text-sm font-medium cursor-pointer">
+                Auto-sincronizar
+              </label>
+            </div>
+            <Select 
+              value={String(autoSyncIntervalSec)} 
+              onValueChange={(v) => setAutoSyncIntervalSec(Number(v) as 30 | 60 | 120)}
+              disabled={!autoSyncEnabled}
+            >
+              <SelectTrigger className="w-28 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30">30 seg</SelectItem>
+                <SelectItem value="60">1 min</SelectItem>
+                <SelectItem value="120">2 min</SelectItem>
+              </SelectContent>
+            </Select>
+            {lastSyncAt && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground ml-auto">
+                <Clock className="w-4 h-4" />
+                <span>Última sync: {lastSyncAt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                {autoSyncEnabled && <span className="text-primary animate-pulse">●</span>}
+              </div>
+            )}
+          </div>
+
           <div className="flex gap-2 flex-wrap">
             <Select value={selectedMatchday} onValueChange={setSelectedMatchday}>
               <SelectTrigger className="bg-input border-border flex-1"><SelectValue /></SelectTrigger>
