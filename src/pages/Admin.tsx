@@ -17,6 +17,7 @@ import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
 import MatchdayChampions from '@/components/admin/MatchdayChampions';
 import AdminDelegatePredictions from '@/components/admin/AdminDelegatePredictions';
+import SyncHistory from '@/components/admin/SyncHistory';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
 interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; is_concluded: boolean; is_current: boolean; }
@@ -621,6 +622,11 @@ export default function Admin() {
           <Button onClick={saveResults} disabled={saving || matches.length === 0} className="w-full btn-gold">
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Save className="w-5 h-5 mr-2" />Guardar y Recalcular Puntos</>}
           </Button>
+          
+          {/* Sync History */}
+          <div className="mt-6 pt-6 border-t border-border">
+            <SyncHistory />
+          </div>
         </TabsContent>
 
         {/* EQUIPOS */}
