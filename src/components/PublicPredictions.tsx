@@ -83,7 +83,7 @@ export default function PublicPredictions() {
   }, [calculatePoints]);
 
   const fetchClosedMatchdays = useCallback(async () => {
-    // Solo traer jornadas cerradas (is_open = false)
+    // Solo traer jornadas cerradas (is_open = false), ordenadas por fecha más reciente
     const { data } = await supabase
       .from('matchdays')
       .select('*')
@@ -92,10 +92,8 @@ export default function PublicPredictions() {
 
     if (data && data.length > 0) {
       setMatchdays(data);
-      // Priorizar jornada marcada como vigente (is_current), si está cerrada
-      const currentMatchday = data.find(m => m.is_current);
-      const selected = currentMatchday || data[0];
-      setSelectedMatchday(selected.id);
+      // Siempre seleccionar la última jornada cerrada (más reciente)
+      setSelectedMatchday(data[0].id);
     }
     setLoading(false);
   }, []);
