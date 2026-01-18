@@ -6,6 +6,8 @@ import { Loader2, FileText, Trophy, Users } from 'lucide-react';
 
 interface Matchday { id: string; name: string; is_open: boolean; }
 
+type CompetitionType = 'weekly' | 'season' | 'both';
+
 interface PredictionRow {
   prediction_id: string;
   user_id: string;
@@ -19,6 +21,7 @@ interface PredictionRow {
   away_score: number | null;
   points_awarded: number | null;
   is_finished: boolean;
+  competition_type: CompetitionType;
 }
 
 interface LeaderboardEntry {
@@ -102,7 +105,11 @@ export default function PublicPredictions() {
     if (!selectedMatchday) return;
     const { data, error } = await supabase.rpc('get_matchday_predictions', { p_matchday_id: selectedMatchday });
     if (!error && data) {
-      setPredictions(data as PredictionRow[]);
+      // Filtrar solo usuarios que participan en jornadas (weekly o both)
+      const filtered = (data as PredictionRow[]).filter(
+        p => p.competition_type === 'weekly' || p.competition_type === 'both'
+      );
+      setPredictions(filtered);
     }
   }, [selectedMatchday]);
 

@@ -129,7 +129,12 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
     const { data, error } = await supabase.rpc('get_matchday_predictions', { p_matchday_id: selectedMatchday });
 
     if (!error && data) {
-      const rawPreds = (data as any[]).map((p) => ({
+      // Filtrar solo usuarios que participan en jornadas (weekly o both)
+      const filteredData = (data as any[]).filter(
+        p => p.competition_type === 'weekly' || p.competition_type === 'both'
+      );
+      
+      const rawPreds = filteredData.map((p) => ({
         user_id: p.user_id,
         display_name: p.display_name,
         predicted_home_score: p.predicted_home_score,
@@ -137,6 +142,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
         home_score: p.home_score,
         away_score: p.away_score,
         match_id: p.match_id,
+        competition_type: p.competition_type,
       })) as RawPrediction[];
 
       matchdayPredictionsRef.current = rawPreds;
