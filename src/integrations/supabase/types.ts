@@ -312,6 +312,7 @@ export type Database = {
         Returns: {
           away_score: number
           away_team_name: string
+          competition_type: Database["public"]["Enums"]["competition_type"]
           display_name: string
           home_score: number
           home_team_name: string
