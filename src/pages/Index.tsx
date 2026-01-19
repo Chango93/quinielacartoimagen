@@ -34,14 +34,25 @@ export default function Index() {
   }, [user]);
 
   const fetchCurrentMatchday = async () => {
-    // Obtener la jornada abierta más próxima (la que tiene start_date más antiguo)
-    const { data } = await supabase
+    // Primero intentar obtener la jornada marcada como actual (is_current)
+    let { data } = await supabase
       .from('matchdays')
       .select('*')
-      .eq('is_open', true)
-      .order('start_date', { ascending: true })
+      .eq('is_current', true)
       .limit(1)
       .maybeSingle();
+    
+    // Si no hay jornada marcada como current, buscar la jornada abierta más próxima
+    if (!data) {
+      const { data: openMatchday } = await supabase
+        .from('matchdays')
+        .select('*')
+        .eq('is_open', true)
+        .order('start_date', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      data = openMatchday;
+    }
     
     setCurrentMatchday(data);
     setLoadingMatchday(false);
