@@ -89,11 +89,30 @@ export default function AdminQuickMatches() {
   };
 
   const downloadTemplate = () => {
-    // Usar los primeros 2 equipos reales como ejemplo
+    // Crear plantilla con todos los equipos como referencia
+    const today = new Date();
+    const dateExample = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    
+    // Usar 2 equipos como ejemplo de filas
     const team1 = teams[0]?.name || 'Equipo1';
     const team2 = teams[1]?.name || 'Equipo2';
-    const template = `local,visitante,fecha\n${team1},${team2},2025-01-15`;
-    const blob = new Blob([template], { type: 'text/csv' });
+    const team3 = teams[2]?.name || 'Equipo3';
+    const team4 = teams[3]?.name || 'Equipo4';
+    
+    // Header + ejemplos + líneas vacías para llenar
+    const lines = [
+      'local,visitante,fecha',
+      `${team1},${team2},${dateExample}`,
+      `${team3},${team4},${dateExample}`,
+      ',,', // Líneas vacías para facilitar el llenado
+      ',,'
+    ];
+    
+    const template = lines.join('\n');
+    
+    // Agregar BOM UTF-8 para que Excel reconozca los acentos correctamente
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + template], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'plantilla_partidos.csv';
@@ -110,6 +129,8 @@ export default function AdminQuickMatches() {
       const lines = text.split('\n').slice(1); // Skip header
       
       const newRows: MatchRow[] = [];
+      const skippedTeams: string[] = [];
+      
       lines.forEach(line => {
         const [local, visitante, fecha] = line.split(',').map(s => s.trim());
         if (!local || !visitante || !fecha) return;
@@ -124,23 +145,44 @@ export default function AdminQuickMatches() {
           t.short_name.toLowerCase() === visitante.toLowerCase()
         );
 
+        // Parsear fecha - soporta DD/MM/YYYY y YYYY-MM-DD
+        let parsedDate = fecha;
+        if (fecha.includes('/')) {
+          const [day, month, year] = fecha.split('/');
+          if (day && month && year) {
+            parsedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
+        }
+
         if (homeTeam && awayTeam) {
           newRows.push({
             home_team_id: homeTeam.id,
             away_team_id: awayTeam.id,
-            match_date: fecha
+            match_date: parsedDate
           });
+        } else {
+          if (!homeTeam && local) skippedTeams.push(local);
+          if (!awayTeam && visitante) skippedTeams.push(visitante);
         }
       });
 
       if (newRows.length > 0) {
         setRows(prev => [...prev, ...newRows]);
-        toast({ title: 'CSV importado', description: `${newRows.length} partidos agregados` });
+        const msg = skippedTeams.length > 0 
+          ? `${newRows.length} partidos agregados. Equipos no encontrados: ${[...new Set(skippedTeams)].join(', ')}`
+          : `${newRows.length} partidos agregados`;
+        toast({ title: 'CSV importado', description: msg });
       } else {
-        toast({ title: 'Error', description: 'No se encontraron partidos válidos en el CSV', variant: 'destructive' });
+        toast({ 
+          title: 'Error', 
+          description: skippedTeams.length > 0 
+            ? `No se encontraron equipos: ${[...new Set(skippedTeams)].join(', ')}` 
+            : 'No se encontraron partidos válidos en el CSV', 
+          variant: 'destructive' 
+        });
       }
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
     
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
