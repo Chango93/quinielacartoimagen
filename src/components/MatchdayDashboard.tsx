@@ -517,38 +517,46 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-display">
               <TrendingUp className="w-4 h-4 text-secondary" />
-              Estadísticas
+              Estadísticas de la jornada
             </CardTitle>
           </CardHeader>
           <CardContent>
             {curiousStats ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <Target className="w-4 h-4 text-secondary shrink-0" />
-                  <span className="text-xs text-muted-foreground">Marcador más predicho:</span>
-                  <span className="text-sm font-semibold text-foreground ml-auto">{curiousStats.mostRepeatedScore}</span>
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                  <Target className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground block">Marcador más repetido por todos</span>
+                    <span className="text-sm font-semibold text-foreground">{curiousStats.mostRepeatedScore}</span>
+                  </div>
                 </div>
 
                 {curiousStats.mostAccurateResult && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                    <span className="text-xs text-muted-foreground">Más acertado:</span>
-                    <span className="text-sm font-semibold text-foreground ml-auto">{curiousStats.mostAccurateResult}</span>
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground block">Resultado más acertado</span>
+                      <span className="text-sm font-semibold text-foreground">{curiousStats.mostAccurateResult}</span>
+                    </div>
                   </div>
                 )}
 
                 {curiousStats.mostVotedToWin && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                    <Flame className="w-4 h-4 text-orange-500 shrink-0" />
-                    <span className="text-xs text-muted-foreground">Favorito:</span>
-                    <span className="text-sm font-semibold text-foreground ml-auto truncate max-w-[120px]">{curiousStats.mostVotedToWin}</span>
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Flame className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground block">Equipo favorito según predicciones</span>
+                      <span className="text-sm font-semibold text-foreground truncate block">{curiousStats.mostVotedToWin}</span>
+                    </div>
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <Users className="w-4 h-4 text-primary shrink-0" />
-                  <span className="text-xs text-muted-foreground">Con al menos 1 exacto:</span>
-                  <span className="text-sm font-semibold text-foreground ml-auto">{curiousStats.percentWithExact}%</span>
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                  <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground block">Participantes con al menos 1 exacto</span>
+                    <span className="text-sm font-semibold text-foreground">{curiousStats.percentWithExact}% de los usuarios</span>
+                  </div>
                 </div>
               </div>
             ) : (
