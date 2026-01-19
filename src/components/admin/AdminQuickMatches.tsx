@@ -92,25 +92,13 @@ export default function AdminQuickMatches() {
 
     setFetchingApi(true);
     try {
-      const { data, error } = await supabase.functions.invoke('fetch-fixtures', {
-        body: null,
-        headers: {}
+      // Llamar la edge function con el round específico
+      const { data: result, error } = await supabase.functions.invoke('fetch-fixtures', {
+        body: { round: selectedApiRound }
       });
       
-      // Llamar con el round específico
-      const response = await fetch(
-        `https://iziunaqlgkfyasxoalwl.supabase.co/functions/v1/fetch-fixtures?round=${encodeURIComponent(selectedApiRound)}`,
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Error fetching fixtures');
+      if (error) {
+        throw new Error(error.message || 'Error fetching fixtures');
       }
 
       const fixtures: ApiFixture[] = result.fixtures || [];
