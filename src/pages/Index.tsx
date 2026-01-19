@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import Leaderboard from '@/components/Leaderboard';
 import LiveMatchesBanner from '@/components/LiveMatchesBanner';
+import MatchdayDashboard from '@/components/MatchdayDashboard';
 import { Trophy, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 
 interface Matchday {
@@ -113,6 +114,15 @@ export default function Index() {
               </div>
             )}
           </div>
+
+          {/* Dashboard de la jornada */}
+          {currentMatchday && (
+            <MatchdayDashboard 
+              matchdayId={currentMatchday.id}
+              matchdayName={currentMatchday.name}
+              isOpen={currentMatchday.is_open}
+            />
+          )}
         </div>
 
         {/* Sidebar - Tabla */}
