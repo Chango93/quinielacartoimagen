@@ -41,11 +41,14 @@ export default function MatchdayWinner({ matchdayId, matchdayName }: MatchdayWin
       });
 
       if (leaderboard && leaderboard.length > 0) {
-        const participants = (leaderboard as any[]).filter(e => e.total_predictions > 0);
+        // Filtrar solo usuarios que participan en jornadas (weekly o both)
+        const weeklyParticipants = (leaderboard as any[]).filter(
+          e => e.total_predictions > 0 && (e.competition_type === 'weekly' || e.competition_type === 'both')
+        );
         
-        if (participants.length > 0) {
-          const maxPoints = participants[0].total_points;
-          const champs = participants.filter(p => p.total_points === maxPoints);
+        if (weeklyParticipants.length > 0) {
+          const maxPoints = weeklyParticipants[0].total_points;
+          const champs = weeklyParticipants.filter(p => p.total_points === maxPoints);
           setWinners(champs.map(c => ({
             display_name: c.display_name,
             total_points: c.total_points,
