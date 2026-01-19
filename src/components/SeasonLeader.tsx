@@ -19,6 +19,25 @@ export default function SeasonLeader({ compact = false }: SeasonLeaderProps) {
 
   useEffect(() => {
     fetchSeasonLeader();
+    
+    // Suscripción realtime para actualizar puntos en vivo
+    const channel = supabase
+      .channel('season-leader-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'predictions' },
+        () => fetchSeasonLeader()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'matches' },
+        () => fetchSeasonLeader()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchSeasonLeader = async () => {
