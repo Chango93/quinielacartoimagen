@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Upload, Download, Loader2, Calendar } from 'lucide-react';
+import { Plus, Trash2, Upload, Download, Loader2, Calendar, CloudDownload, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Team { id: string; name: string; short_name: string; logo_url: string | null; }
 interface Matchday { id: string; name: string; }
@@ -14,6 +15,19 @@ interface MatchRow {
   home_team_id: string;
   away_team_id: string;
   match_date: string;
+}
+
+interface ApiFixture {
+  home_team_id: string | null;
+  away_team_id: string | null;
+  home_team_api: string;
+  away_team_api: string;
+  home_team_name: string | null;
+  away_team_name: string | null;
+  match_date: string;
+  match_time: string;
+  round: string;
+  matched: boolean;
 }
 
 export default function AdminQuickMatches() {
@@ -26,9 +40,17 @@ export default function AdminQuickMatches() {
   const [rows, setRows] = useState<MatchRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // API import state
+  const [apiRounds, setApiRounds] = useState<string[]>([]);
+  const [selectedApiRound, setSelectedApiRound] = useState<string>('');
+  const [fetchingApi, setFetchingApi] = useState(false);
+  const [apiFixtures, setApiFixtures] = useState<ApiFixture[]>([]);
+  const [unmatchedTeams, setUnmatchedTeams] = useState<string[]>([]);
 
   useEffect(() => {
     fetchData();
+    fetchApiRounds();
   }, []);
 
   const fetchData = async () => {
@@ -43,6 +65,96 @@ export default function AdminQuickMatches() {
       if (matchdaysRes.data[0]) setSelectedMatchday(matchdaysRes.data[0].id);
     }
     setLoading(false);
+  };
+
+  // Obtener jornadas disponibles de la API
+  const fetchApiRounds = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-fixtures');
+      if (error) {
+        console.error('Error fetching API rounds:', error);
+        return;
+      }
+      if (data?.rounds) {
+        setApiRounds(data.rounds);
+      }
+    } catch (err) {
+      console.error('Error calling fetch-fixtures:', err);
+    }
+  };
+
+  // Importar partidos de una jornada específica
+  const importFromApi = async () => {
+    if (!selectedApiRound) {
+      toast({ title: 'Error', description: 'Selecciona una jornada de la API', variant: 'destructive' });
+      return;
+    }
+
+    setFetchingApi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-fixtures', {
+        body: null,
+        headers: {}
+      });
+      
+      // Llamar con el round específico
+      const response = await fetch(
+        `https://iziunaqlgkfyasxoalwl.supabase.co/functions/v1/fetch-fixtures?round=${encodeURIComponent(selectedApiRound)}`,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Error fetching fixtures');
+      }
+
+      const fixtures: ApiFixture[] = result.fixtures || [];
+      setApiFixtures(fixtures);
+      
+      // Encontrar equipos no mapeados
+      const unmatched = fixtures
+        .filter(f => !f.matched)
+        .flatMap(f => [
+          !f.home_team_id ? f.home_team_api : null,
+          !f.away_team_id ? f.away_team_api : null
+        ])
+        .filter((t): t is string => t !== null);
+      setUnmatchedTeams([...new Set(unmatched)]);
+
+      // Agregar solo los fixtures completamente mapeados a las filas
+      const matchedFixtures = fixtures.filter(f => f.matched && f.home_team_id && f.away_team_id);
+      const newRows: MatchRow[] = matchedFixtures.map(f => ({
+        home_team_id: f.home_team_id!,
+        away_team_id: f.away_team_id!,
+        match_date: f.match_date
+      }));
+
+      if (newRows.length > 0) {
+        setRows(prev => [...prev, ...newRows]);
+        toast({ 
+          title: 'Partidos importados', 
+          description: `${newRows.length} partidos de "${selectedApiRound}" agregados (horario CDMX)` 
+        });
+      }
+
+      if (unmatched.length > 0) {
+        toast({
+          title: 'Equipos no encontrados',
+          description: `${unmatched.length} equipos no se pudieron mapear. Revisa la lista.`,
+          variant: 'destructive'
+        });
+      }
+    } catch (err) {
+      console.error('Error importing from API:', err);
+      toast({ title: 'Error', description: 'No se pudieron importar los partidos', variant: 'destructive' });
+    } finally {
+      setFetchingApi(false);
+    }
   };
 
   const addRow = () => {
@@ -223,6 +335,55 @@ export default function AdminQuickMatches() {
         <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
           <Upload className="w-4 h-4 mr-2" />Importar CSV
         </Button>
+      </div>
+
+      {/* Importar desde API */}
+      <div className="bg-muted/30 rounded-lg p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <CloudDownload className="w-4 h-4 text-secondary" />
+          Importar desde Liga MX API
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          <Select value={selectedApiRound} onValueChange={setSelectedApiRound}>
+            <SelectTrigger className="w-[280px] bg-input border-border">
+              <SelectValue placeholder="Selecciona jornada de la API..." />
+            </SelectTrigger>
+            <SelectContent className="bg-popover border-border z-50 max-h-60">
+              {apiRounds.length === 0 ? (
+                <SelectItem value="_loading" disabled>Cargando jornadas...</SelectItem>
+              ) : (
+                apiRounds.map(round => (
+                  <SelectItem key={round} value={round}>{round}</SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            variant="secondary" 
+            onClick={importFromApi}
+            disabled={fetchingApi || !selectedApiRound}
+          >
+            {fetchingApi ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CloudDownload className="w-4 h-4 mr-2" />}
+            Importar partidos
+          </Button>
+        </div>
+        
+        <p className="text-xs text-muted-foreground">
+          Los horarios se importan en zona horaria de CDMX (UTC-6). Puedes editar las fechas después de importar.
+        </p>
+
+        {unmatchedTeams.length > 0 && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <span className="font-medium">Equipos no mapeados:</span> {unmatchedTeams.join(', ')}
+              <br />
+              <span className="text-xs">Verifica que estos equipos existan en tu lista con el nombre correcto.</span>
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
 
       {/* Referencia de nombres de equipos */}

@@ -8,8 +8,7 @@ verify_jwt = false
 
 [functions.auto-sync-results]
 verify_jwt = false
-# Cron cada 3 minutos. La función verifica internamente si hay partidos activos:
-# - Solo sincroniza partidos que YA iniciaron (match_date <= now)
-# - Deja de sincronizar cuando el partido termina (is_finished = true)
-# - Soporta múltiples partidos simultáneos
 schedule = "*/3 * * * *"
+
+[functions.fetch-fixtures]
+verify_jwt = false
