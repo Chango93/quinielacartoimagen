@@ -648,44 +648,51 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           </CardContent>
         </Card>
 
-        {/* 3️⃣ Partido clave */}
+        {/* 3️⃣ Partidos clave */}
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-display">
               <Star className="w-4 h-4 text-secondary" />
-              {matchdayState === 'pre_start' ? 'Partido más esperado' : 'Partido clave'}
+              Partidos clave
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            {keyMatch ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 text-center">
-                    <p className="font-semibold text-foreground text-sm truncate">{keyMatch.homeTeam}</p>
-                  </div>
-                  <div className="px-3 text-center">
-                    {keyMatch.isFinished || keyMatch.isLive ? (
-                      <p className="text-xl font-bold text-foreground">
-                        {keyMatch.homeScore} - {keyMatch.awayScore}
-                      </p>
-                    ) : (
-                      <p className="text-xl font-bold text-muted-foreground">vs</p>
-                    )}
-                  </div>
-                  <div className="flex-1 text-center">
-                    <p className="font-semibold text-foreground text-sm truncate">{keyMatch.awayTeam}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  {getMatchStatusBadge(keyMatch.isFinished, keyMatch.isLive)}
-                  <span className="text-xs text-muted-foreground">{keyMatch.reason}</span>
+          <CardContent className="space-y-3">
+            {/* Partido más polarizado */}
+            {(preStats?.mostPolarizedMatch || inProgressStats?.mostPolarizedMatch) && (
+              <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-muted-foreground block">Partido más polarizado</span>
+                  <span className="text-sm font-semibold text-foreground truncate block">
+                    {preStats?.mostPolarizedMatch || inProgressStats?.mostPolarizedMatch}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Opiniones muy divididas</span>
                 </div>
               </div>
-            ) : (
+            )}
+
+            {/* Partido más desequilibrado */}
+            {(preStats?.mostUnbalancedMatch || inProgressStats?.mostUnbalancedMatch) && (
+              <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                <TrendingUp className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs text-muted-foreground block">Partido más desequilibrado</span>
+                  <span className="text-sm font-semibold text-foreground truncate block">
+                    {preStats?.mostUnbalancedMatch || inProgressStats?.mostUnbalancedMatch}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {preStats?.mostUnbalancedPercent || inProgressStats?.mostUnbalancedPercent}% apoya al favorito
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Sin datos */}
+            {!preStats?.mostPolarizedMatch && !preStats?.mostUnbalancedMatch && 
+             !inProgressStats?.mostPolarizedMatch && !inProgressStats?.mostUnbalancedMatch && (
               <div className="text-center py-4 text-muted-foreground">
                 <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Sin partidos en esta jornada</p>
+                <p className="text-sm">Sin suficientes predicciones</p>
               </div>
             )}
           </CardContent>
@@ -743,33 +750,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </div>
                 </div>
 
-                {/* Partido más polarizado */}
-                {preStats.mostPolarizedMatch && (
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Partido más polarizado</span>
-                      <span className="text-sm font-semibold text-foreground truncate block">
-                        {preStats.mostPolarizedMatch}
-                      </span>
-                      <span className="text-xs text-muted-foreground">Opiniones muy divididas</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Partido más desequilibrado */}
-                {preStats.mostUnbalancedMatch && (
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <TrendingUp className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Partido más desequilibrado</span>
-                      <span className="text-sm font-semibold text-foreground truncate block">
-                        {preStats.mostUnbalancedMatch}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{preStats.mostUnbalancedPercent}% apoya al favorito</span>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : inProgressStats ? (
               <div className="space-y-2">
@@ -839,33 +819,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </div>
                 )}
 
-                {/* Partido más polarizado */}
-                {inProgressStats.mostPolarizedMatch && (
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Partido más polarizado</span>
-                      <span className="text-sm font-semibold text-foreground truncate block">
-                        {inProgressStats.mostPolarizedMatch}
-                      </span>
-                      <span className="text-xs text-muted-foreground">Opiniones muy divididas</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Partido más desequilibrado */}
-                {inProgressStats.mostUnbalancedMatch && (
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <TrendingUp className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Partido más desequilibrado</span>
-                      <span className="text-sm font-semibold text-foreground truncate block">
-                        {inProgressStats.mostUnbalancedMatch}
-                      </span>
-                      <span className="text-xs text-muted-foreground">{inProgressStats.mostUnbalancedPercent}% apoya al favorito</span>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="text-center py-4 text-muted-foreground">
