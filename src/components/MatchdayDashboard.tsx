@@ -77,6 +77,10 @@ interface InProgressStats {
   remainingMatchesCanChange: number;
   mostAccurateScore: string | null;
   mostAccurateScorePercent: number;
+  mostPolarizedMatch: string | null;
+  mostPolarizedPercent: number;
+  mostUnbalancedMatch: string | null;
+  mostUnbalancedPercent: number;
 }
 
 type MatchdayState = 'pre_start' | 'in_progress' | 'closed';
@@ -424,6 +428,43 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       // Remaining matches that can change standings
       const remainingMatchesCanChange = matches.filter(m => !m.is_finished).length;
 
+      // Analyze match polarity (same logic as pre-matchday)
+      let mostPolarizedMatch: string | null = null;
+      let mostPolarizedPercent = 0;
+      let mostUnbalancedMatch: string | null = null;
+      let mostUnbalancedPercent = 0;
+
+      matches.forEach(match => {
+        const matchPreds = predictions?.filter(p => p.match_id === match.id) || [];
+        if (matchPreds.length < 3) return;
+
+        let homeWins = 0;
+        let awayWins = 0;
+        
+        matchPreds.forEach(p => {
+          if (p.predicted_home_score > p.predicted_away_score) homeWins++;
+          else if (p.predicted_away_score > p.predicted_home_score) awayWins++;
+        });
+
+        const total = matchPreds.length;
+        const maxSide = Math.max(homeWins, awayWins);
+        const minSide = Math.min(homeWins, awayWins);
+        
+        const polarizedRatio = minSide / (homeWins + awayWins || 1);
+        if (polarizedRatio > 0.35 && polarizedRatio > mostPolarizedPercent) {
+          mostPolarizedPercent = polarizedRatio;
+          mostPolarizedMatch = `${(match.home_team as any)?.name} vs ${(match.away_team as any)?.name}`;
+        }
+
+        const unbalancedPercent = (maxSide / total) * 100;
+        if (unbalancedPercent > 60 && unbalancedPercent > mostUnbalancedPercent) {
+          mostUnbalancedPercent = unbalancedPercent;
+          const favored = homeWins > awayWins ? (match.home_team as any)?.name : (match.away_team as any)?.name;
+          const opponent = homeWins > awayWins ? (match.away_team as any)?.name : (match.home_team as any)?.name;
+          mostUnbalancedMatch = `${favored} vs ${opponent}`;
+        }
+      });
+
       setInProgressStats({
         percentWithExact,
         difficultyLabel,
@@ -431,7 +472,11 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         mostBackedTeamRewarded,
         remainingMatchesCanChange,
         mostAccurateScore,
-        mostAccurateScorePercent: Math.round(mostAccurateScorePercent)
+        mostAccurateScorePercent: Math.round(mostAccurateScorePercent),
+        mostPolarizedMatch,
+        mostPolarizedPercent: Math.round(mostPolarizedPercent * 100),
+        mostUnbalancedMatch,
+        mostUnbalancedPercent: Math.round(mostUnbalancedPercent)
       });
       setPreStats(null);
     }
@@ -790,6 +835,34 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                       <span className="text-xs text-muted-foreground block">
                         Aún pueden mover la tabla
                       </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Partido más polarizado */}
+                {inProgressStats.mostPolarizedMatch && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground block">Partido más polarizado</span>
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {inProgressStats.mostPolarizedMatch}
+                      </span>
+                      <span className="text-xs text-muted-foreground">Opiniones muy divididas</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Partido más desequilibrado */}
+                {inProgressStats.mostUnbalancedMatch && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <TrendingUp className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground block">Partido más desequilibrado</span>
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {inProgressStats.mostUnbalancedMatch}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{inProgressStats.mostUnbalancedPercent}% apoya al favorito</span>
                     </div>
                   </div>
                 )}
