@@ -191,10 +191,17 @@ Deno.serve(async (req) => {
       }
     };
 
+    // Filtrar solo partidos del Clausura 2026 (enero 2026 en adelante)
+    // El Clausura 2026 inicia en enero 2026
+    const clausura2026Start = new Date("2026-01-01");
+    let filteredEvents = events.filter(e => {
+      const eventDate = new Date(e.dateEvent);
+      return eventDate >= clausura2026Start;
+    });
+
     // Filtrar por jornada si se especifica
-    let filteredEvents = events;
     if (round) {
-      filteredEvents = events.filter(e => e.intRound === round);
+      filteredEvents = filteredEvents.filter(e => e.intRound === round);
     }
 
     // Convertir eventos a formato para el frontend

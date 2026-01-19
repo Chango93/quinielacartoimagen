@@ -15,6 +15,7 @@ interface MatchRow {
   home_team_id: string;
   away_team_id: string;
   match_date: string;
+  match_time?: string; // HH:mm format
 }
 
 interface ApiFixture {
@@ -119,14 +120,15 @@ export default function AdminQuickMatches() {
       const newRows: MatchRow[] = matchedFixtures.map(f => ({
         home_team_id: f.home_team_id!,
         away_team_id: f.away_team_id!,
-        match_date: f.match_date
+        match_date: f.match_date,
+        match_time: f.match_time
       }));
 
       if (newRows.length > 0) {
         setRows(prev => [...prev, ...newRows]);
         toast({ 
           title: 'Partidos importados', 
-          description: `${newRows.length} partidos de "${selectedApiRound}" agregados (horario CDMX)` 
+          description: `${newRows.length} partidos de Jornada ${selectedApiRound} (Clausura 2026) agregados` 
         });
       }
 
@@ -146,7 +148,7 @@ export default function AdminQuickMatches() {
   };
 
   const addRow = () => {
-    setRows(prev => [...prev, { home_team_id: '', away_team_id: '', match_date: '' }]);
+    setRows(prev => [...prev, { home_team_id: '', away_team_id: '', match_date: '', match_time: '' }]);
   };
 
   const updateRow = (index: number, field: keyof MatchRow, value: string) => {
@@ -170,12 +172,21 @@ export default function AdminQuickMatches() {
     }
 
     setSaving(true);
-    const matches = validRows.map(r => ({
-      matchday_id: selectedMatchday,
-      home_team_id: r.home_team_id,
-      away_team_id: r.away_team_id,
-      match_date: new Date(r.match_date).toISOString()
-    }));
+    const matches = validRows.map(r => {
+      // Combinar fecha y hora si existe
+      let matchDate: Date;
+      if (r.match_time) {
+        matchDate = new Date(`${r.match_date}T${r.match_time}:00`);
+      } else {
+        matchDate = new Date(r.match_date);
+      }
+      return {
+        matchday_id: selectedMatchday,
+        home_team_id: r.home_team_id,
+        away_team_id: r.away_team_id,
+        match_date: matchDate.toISOString()
+      };
+    });
 
     const { error } = await supabase.from('matches').insert(matches);
     
@@ -398,6 +409,7 @@ export default function AdminQuickMatches() {
               <TableHead className="text-foreground">Local</TableHead>
               <TableHead className="text-foreground">Visitante</TableHead>
               <TableHead className="text-foreground">Fecha</TableHead>
+              <TableHead className="text-foreground w-24">Hora</TableHead>
               <TableHead className="w-16"></TableHead>
             </TableRow>
           </TableHeader>
@@ -447,6 +459,15 @@ export default function AdminQuickMatches() {
                   />
                 </TableCell>
                 <TableCell>
+                  <Input 
+                    type="time" 
+                    value={row.match_time || ''} 
+                    onChange={e => updateRow(index, 'match_time', e.target.value)}
+                    className="input-sports w-24"
+                    placeholder="HH:mm"
+                  />
+                </TableCell>
+                <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => removeRow(index)} className="text-destructive">
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -455,7 +476,7 @@ export default function AdminQuickMatches() {
             ))}
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                   Haz clic en "Agregar fila" o importa un CSV
                 </TableCell>
               </TableRow>
