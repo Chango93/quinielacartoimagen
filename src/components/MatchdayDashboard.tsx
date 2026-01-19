@@ -62,8 +62,10 @@ interface PreMatchdayStats {
   mostBackedTeamVotes: number;
   expectedGoals: 'low' | 'medium' | 'high';
   avgPredictedGoals: number;
-  mostAnticipatedMatch: string | null;
-  mostAnticipatedMatchPredictions: number;
+  mostPolarizedMatch: string | null;
+  mostPolarizedPercent: number;
+  mostUnbalancedMatch: string | null;
+  mostUnbalancedPercent: number;
 }
 
 // Stats para jornada en curso/finalizada
@@ -316,21 +318,46 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       if (avgPredictedGoals < 2) expectedGoals = 'low';
       else if (avgPredictedGoals > 3.5) expectedGoals = 'high';
 
-      // Most anticipated match
-      const matchPredCounts = new Map<string, number>();
-      predictions?.forEach(p => {
-        matchPredCounts.set(p.match_id, (matchPredCounts.get(p.match_id) || 0) + 1);
-      });
-      const topMatch = Array.from(matchPredCounts.entries())
-        .sort((a, b) => b[1] - a[1])[0];
-      
-      let mostAnticipatedMatch: string | null = null;
-      if (topMatch) {
-        const match = matches.find(m => m.id === topMatch[0]);
-        if (match) {
-          mostAnticipatedMatch = `${(match.home_team as any)?.name} vs ${(match.away_team as any)?.name}`;
+      // Analyze match polarity (how divided predictions are)
+      let mostPolarizedMatch: string | null = null;
+      let mostPolarizedPercent = 0;
+      let mostUnbalancedMatch: string | null = null;
+      let mostUnbalancedPercent = 0;
+
+      matches.forEach(match => {
+        const matchPreds = predictions?.filter(p => p.match_id === match.id) || [];
+        if (matchPreds.length < 3) return; // Need at least 3 predictions
+
+        let homeWins = 0;
+        let awayWins = 0;
+        let draws = 0;
+        
+        matchPreds.forEach(p => {
+          if (p.predicted_home_score > p.predicted_away_score) homeWins++;
+          else if (p.predicted_away_score > p.predicted_home_score) awayWins++;
+          else draws++;
+        });
+
+        const total = matchPreds.length;
+        const maxSide = Math.max(homeWins, awayWins);
+        const minSide = Math.min(homeWins, awayWins);
+        
+        // Polarized = divided predictions (close to 50/50 between home/away)
+        const polarizedRatio = minSide / (homeWins + awayWins || 1);
+        if (polarizedRatio > 0.35 && polarizedRatio > mostPolarizedPercent) {
+          mostPolarizedPercent = polarizedRatio;
+          mostPolarizedMatch = `${(match.home_team as any)?.name} vs ${(match.away_team as any)?.name}`;
         }
-      }
+
+        // Unbalanced = one team heavily favored
+        const unbalancedPercent = (maxSide / total) * 100;
+        if (unbalancedPercent > 60 && unbalancedPercent > mostUnbalancedPercent) {
+          mostUnbalancedPercent = unbalancedPercent;
+          const favored = homeWins > awayWins ? (match.home_team as any)?.name : (match.away_team as any)?.name;
+          const opponent = homeWins > awayWins ? (match.away_team as any)?.name : (match.home_team as any)?.name;
+          mostUnbalancedMatch = `${favored} vs ${opponent}`;
+        }
+      });
 
       setPreStats({
         participationPercent,
@@ -339,8 +366,10 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         mostBackedTeamVotes: topTeam?.[1].votes || 0,
         expectedGoals,
         avgPredictedGoals: Math.round(avgPredictedGoals * 10) / 10,
-        mostAnticipatedMatch,
-        mostAnticipatedMatchPredictions: topMatch?.[1] || 0
+        mostPolarizedMatch,
+        mostPolarizedPercent: Math.round(mostPolarizedPercent * 100),
+        mostUnbalancedMatch,
+        mostUnbalancedPercent: Math.round(mostUnbalancedPercent)
       });
       setInProgressStats(null);
     } else {
@@ -669,15 +698,30 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </div>
                 </div>
 
-                {/* Partido más anticipado */}
-                {preStats.mostAnticipatedMatch && (
+                {/* Partido más polarizado */}
+                {preStats.mostPolarizedMatch && (
                   <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <Star className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                    <Zap className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Partido con más predicciones</span>
+                      <span className="text-xs text-muted-foreground block">Partido más polarizado</span>
                       <span className="text-sm font-semibold text-foreground truncate block">
-                        {preStats.mostAnticipatedMatch}
+                        {preStats.mostPolarizedMatch}
                       </span>
+                      <span className="text-xs text-muted-foreground">Opiniones muy divididas</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Partido más desequilibrado */}
+                {preStats.mostUnbalancedMatch && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <TrendingUp className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground block">Partido más desequilibrado</span>
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {preStats.mostUnbalancedMatch}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{preStats.mostUnbalancedPercent}% apoya al favorito</span>
                     </div>
                   </div>
                 )}
