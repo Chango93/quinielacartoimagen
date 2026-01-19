@@ -31,6 +31,50 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ============ AUTHENTICATION: Admin-only access ============
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    // Create client with user's token to verify auth
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    
+    const { data: userData, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !userData?.user) {
+      console.error("Auth error:", authError);
+      return new Response(
+        JSON.stringify({ error: "Invalid or expired token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check admin role using service role client
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
+      _user_id: userData.user.id,
+      _role: "admin"
+    });
+
+    if (!isAdmin) {
+      console.log(`User ${userData.user.id} attempted to access fetch-fixtures without admin role`);
+      return new Response(
+        JSON.stringify({ error: "Forbidden - Admin access required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // ============ END AUTHENTICATION ============
+
     const apiKey = Deno.env.get("THESPORTSDB_API_KEY");
     if (!apiKey) {
       console.error("THESPORTSDB_API_KEY not configured");
@@ -101,10 +145,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Obtener equipos de la base de datos para mapear nombres
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Obtener equipos de la base de datos para mapear nombres (reuse supabaseAdmin)
+    const supabase = supabaseAdmin;
 
     const { data: teams, error: teamsError } = await supabase
       .from("teams")
