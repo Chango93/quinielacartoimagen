@@ -15,7 +15,9 @@ import {
   CheckCircle2,
   Flame,
   Users,
-  Goal
+  Goal,
+  Zap,
+  AlertTriangle
 } from 'lucide-react';
 
 interface MatchdayDashboardProps {
@@ -52,14 +54,30 @@ interface KeyMatch {
   predictionCount: number;
 }
 
-interface CuriousStats {
-  mostRepeatedScore: string;
-  mostAccurateResult: string | null;
-  mostVotedToWin: string | null;
-  percentWithExact: number;
+// Stats para jornada pre-inicio
+interface PreMatchdayStats {
+  participationPercent: number;
+  totalParticipants: number;
+  mostBackedTeam: string | null;
+  mostBackedTeamVotes: number;
+  expectedGoals: 'low' | 'medium' | 'high';
+  avgPredictedGoals: number;
+  mostAnticipatedMatch: string | null;
+  mostAnticipatedMatchPredictions: number;
 }
 
-type MatchdayState = 'open' | 'in_progress' | 'closed';
+// Stats para jornada en curso/finalizada
+interface InProgressStats {
+  percentWithExact: number;
+  difficultyLabel: string;
+  mostBackedTeam: string | null;
+  mostBackedTeamRewarded: boolean | null;
+  remainingMatchesCanChange: number;
+  mostAccurateScore: string | null;
+  mostAccurateScorePercent: number;
+}
+
+type MatchdayState = 'pre_start' | 'in_progress' | 'closed';
 
 export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: MatchdayDashboardProps) {
   const { user } = useAuth();
@@ -67,8 +85,9 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
   const [summary, setSummary] = useState<MatchdaySummary | null>(null);
   const [userStatus, setUserStatus] = useState<UserStatus | null>(null);
   const [keyMatch, setKeyMatch] = useState<KeyMatch | null>(null);
-  const [curiousStats, setCuriousStats] = useState<CuriousStats | null>(null);
-  const [matchdayState, setMatchdayState] = useState<MatchdayState>('open');
+  const [preStats, setPreStats] = useState<PreMatchdayStats | null>(null);
+  const [inProgressStats, setInProgressStats] = useState<InProgressStats | null>(null);
+  const [matchdayState, setMatchdayState] = useState<MatchdayState>('pre_start');
 
   useEffect(() => {
     if (matchdayId) {
@@ -83,7 +102,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         fetchMatchdaySummary(),
         fetchUserStatus(),
         fetchKeyMatch(),
-        fetchCuriousStats()
+        fetchStats()
       ]);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -100,20 +119,15 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
     if (!matches) return;
 
     const playedMatches = matches.filter(m => m.is_finished).length;
+    const matchesWithScores = matches.filter(m => m.home_score !== null && m.away_score !== null);
     const pendingMatches = matches.filter(m => !m.is_finished).length;
-    const totalGoals = matches
-      .filter(m => m.home_score !== null && m.away_score !== null)
-      .reduce((sum, m) => sum + (m.home_score || 0) + (m.away_score || 0), 0);
+    const totalGoals = matchesWithScores.reduce((sum, m) => sum + (m.home_score || 0) + (m.away_score || 0), 0);
     const progressPercent = matches.length > 0 ? Math.round((playedMatches / matches.length) * 100) : 0;
 
     // Determine matchday state
-    const hasLiveMatches = matches.some(m => 
-      m.home_score !== null && m.away_score !== null && !m.is_finished
-    );
-    
-    if (isOpen && playedMatches === 0) {
-      setMatchdayState('open');
-    } else if (playedMatches < matches.length || hasLiveMatches) {
+    if (matchesWithScores.length === 0 && isOpen) {
+      setMatchdayState('pre_start');
+    } else if (playedMatches < matches.length) {
       setMatchdayState('in_progress');
     } else {
       setMatchdayState('closed');
@@ -131,7 +145,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
   const fetchUserStatus = async () => {
     if (!user) return;
 
-    // Get leaderboard for this matchday
     const { data: leaderboard } = await supabase
       .rpc('get_matchday_leaderboard', { p_matchday_id: matchdayId });
 
@@ -140,7 +153,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
     const userEntry = leaderboard.find(entry => entry.user_id === user.id);
     const position = leaderboard.findIndex(entry => entry.user_id === user.id) + 1;
 
-    // Get remaining matches where user can still score
     const { data: matches } = await supabase
       .from('matches')
       .select('id, is_finished')
@@ -163,7 +175,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
   };
 
   const fetchKeyMatch = async () => {
-    // Get all matches with team info
     const { data: matches } = await supabase
       .from('matches')
       .select(`
@@ -180,7 +191,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
 
     if (!matches || matches.length === 0) return;
 
-    // Get prediction counts for all matches
     const { data: predictions } = await supabase
       .from('predictions')
       .select('match_id')
@@ -191,7 +201,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       predictionCounts.set(p.match_id, (predictionCounts.get(p.match_id) || 0) + 1);
     });
 
-    // Find key match: prioritize pending match with most predictions
     const pendingMatches = matches.filter(m => !m.is_finished);
     let selectedMatch = pendingMatches.length > 0
       ? pendingMatches.reduce((best, current) => {
@@ -199,7 +208,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           const currentCount = predictionCounts.get(current.id) || 0;
           return currentCount > bestCount ? current : best;
         }, pendingMatches[0])
-      : matches[0]; // If all finished, show last played
+      : matches[0];
 
     const predCount = predictionCounts.get(selectedMatch.id) || 0;
     const isLive = selectedMatch.home_score !== null && 
@@ -212,7 +221,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
     } else if (isLive) {
       reason = 'En vivo ahora';
     } else if (predCount > 0) {
-      reason = `${predCount} predicciones registradas`;
+      reason = `${predCount} predicciones`;
     } else {
       reason = 'Próximo partido';
     }
@@ -230,104 +239,180 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
     });
   };
 
-  const fetchCuriousStats = async () => {
-    // Get all matches for this matchday
+  const fetchStats = async () => {
     const { data: matches } = await supabase
       .from('matches')
-      .select('id, home_score, away_score, is_finished')
-      .eq('matchday_id', matchdayId);
-
-    if (!matches) return;
-
-    // Get all predictions for this matchday's matches
-    const { data: predictions } = await supabase
-      .from('predictions')
-      .select('user_id, match_id, predicted_home_score, predicted_away_score, points_awarded')
-      .in('match_id', matches.map(m => m.id));
-
-    if (!predictions || predictions.length === 0) {
-      setCuriousStats({
-        mostRepeatedScore: 'Sin datos',
-        mostAccurateResult: null,
-        mostVotedToWin: null,
-        percentWithExact: 0
-      });
-      return;
-    }
-
-    // Most repeated predicted score
-    const scoreCounts = new Map<string, number>();
-    predictions.forEach(p => {
-      const score = `${p.predicted_home_score}-${p.predicted_away_score}`;
-      scoreCounts.set(score, (scoreCounts.get(score) || 0) + 1);
-    });
-    const mostRepeatedScore = Array.from(scoreCounts.entries())
-      .sort((a, b) => b[1] - a[1])[0]?.[0] || 'Sin datos';
-
-    // Most accurate result (highest % of correct predictions for a finished match)
-    let mostAccurateResult: string | null = null;
-    const finishedMatches = matches.filter(m => m.is_finished);
-    if (finishedMatches.length > 0) {
-      let bestAccuracy = 0;
-      finishedMatches.forEach(match => {
-        const matchPreds = predictions.filter(p => p.match_id === match.id);
-        const correctCount = matchPreds.filter(p => p.points_awarded === 2).length;
-        const accuracy = matchPreds.length > 0 ? correctCount / matchPreds.length : 0;
-        if (accuracy > bestAccuracy) {
-          bestAccuracy = accuracy;
-          mostAccurateResult = `${match.home_score}-${match.away_score} (${Math.round(accuracy * 100)}% exactos)`;
-        }
-      });
-    }
-
-    // Most voted team to win (based on predictions)
-    const teamWinVotes = new Map<string, number>();
-    const { data: matchesWithTeams } = await supabase
-      .from('matches')
       .select(`
-        id,
+        id, 
+        home_score, 
+        away_score, 
+        is_finished,
         home_team:teams!matches_home_team_id_fkey(name),
         away_team:teams!matches_away_team_id_fkey(name)
       `)
       .eq('matchday_id', matchdayId);
 
-    predictions.forEach(p => {
-      const match = matchesWithTeams?.find(m => m.id === p.match_id);
+    if (!matches) return;
+
+    const { data: predictions } = await supabase
+      .from('predictions')
+      .select('user_id, match_id, predicted_home_score, predicted_away_score, points_awarded')
+      .in('match_id', matches.map(m => m.id));
+
+    const { data: allProfiles } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .in('competition_type', ['season', 'both', 'weekly']);
+
+    const totalRegisteredUsers = allProfiles?.length || 0;
+    const uniqueParticipants = new Set(predictions?.map(p => p.user_id) || []);
+    const matchesWithScores = matches.filter(m => m.home_score !== null && m.away_score !== null);
+    const hasResults = matchesWithScores.length > 0;
+
+    // Calculate team votes
+    const teamWinVotes = new Map<string, { votes: number; matchIds: string[] }>();
+    predictions?.forEach(p => {
+      const match = matches.find(m => m.id === p.match_id);
       if (match) {
         if (p.predicted_home_score > p.predicted_away_score) {
           const team = (match.home_team as any)?.name;
-          if (team) teamWinVotes.set(team, (teamWinVotes.get(team) || 0) + 1);
+          if (team) {
+            const current = teamWinVotes.get(team) || { votes: 0, matchIds: [] };
+            teamWinVotes.set(team, { 
+              votes: current.votes + 1, 
+              matchIds: [...current.matchIds, match.id] 
+            });
+          }
         } else if (p.predicted_away_score > p.predicted_home_score) {
           const team = (match.away_team as any)?.name;
-          if (team) teamWinVotes.set(team, (teamWinVotes.get(team) || 0) + 1);
+          if (team) {
+            const current = teamWinVotes.get(team) || { votes: 0, matchIds: [] };
+            teamWinVotes.set(team, { 
+              votes: current.votes + 1, 
+              matchIds: [...current.matchIds, match.id] 
+            });
+          }
         }
       }
     });
-    const mostVotedToWin = Array.from(teamWinVotes.entries())
-      .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
-    // Percent of users with at least one exact result
-    const usersWithExact = new Set(
-      predictions.filter(p => p.points_awarded === 2).map(p => p.user_id)
-    );
-    const uniqueUsers = new Set(predictions.map(p => p.user_id));
-    const percentWithExact = uniqueUsers.size > 0 
-      ? Math.round((usersWithExact.size / uniqueUsers.size) * 100) 
-      : 0;
+    const topTeam = Array.from(teamWinVotes.entries())
+      .sort((a, b) => b[1].votes - a[1].votes)[0];
 
-    setCuriousStats({
-      mostRepeatedScore,
-      mostAccurateResult,
-      mostVotedToWin,
-      percentWithExact
-    });
+    if (!hasResults) {
+      // PRE-MATCHDAY STATS
+      const participationPercent = totalRegisteredUsers > 0 
+        ? Math.round((uniqueParticipants.size / totalRegisteredUsers) * 100)
+        : 0;
+
+      // Expected goals based on predictions
+      const totalPredictedGoals = predictions?.reduce((sum, p) => 
+        sum + p.predicted_home_score + p.predicted_away_score, 0) || 0;
+      const avgPredictedGoals = predictions && predictions.length > 0 
+        ? totalPredictedGoals / predictions.length 
+        : 0;
+      
+      let expectedGoals: 'low' | 'medium' | 'high' = 'medium';
+      if (avgPredictedGoals < 2) expectedGoals = 'low';
+      else if (avgPredictedGoals > 3.5) expectedGoals = 'high';
+
+      // Most anticipated match
+      const matchPredCounts = new Map<string, number>();
+      predictions?.forEach(p => {
+        matchPredCounts.set(p.match_id, (matchPredCounts.get(p.match_id) || 0) + 1);
+      });
+      const topMatch = Array.from(matchPredCounts.entries())
+        .sort((a, b) => b[1] - a[1])[0];
+      
+      let mostAnticipatedMatch: string | null = null;
+      if (topMatch) {
+        const match = matches.find(m => m.id === topMatch[0]);
+        if (match) {
+          mostAnticipatedMatch = `${(match.home_team as any)?.name} vs ${(match.away_team as any)?.name}`;
+        }
+      }
+
+      setPreStats({
+        participationPercent,
+        totalParticipants: uniqueParticipants.size,
+        mostBackedTeam: topTeam?.[0] || null,
+        mostBackedTeamVotes: topTeam?.[1].votes || 0,
+        expectedGoals,
+        avgPredictedGoals: Math.round(avgPredictedGoals * 10) / 10,
+        mostAnticipatedMatch,
+        mostAnticipatedMatchPredictions: topMatch?.[1] || 0
+      });
+      setInProgressStats(null);
+    } else {
+      // IN-PROGRESS / CLOSED STATS
+      const usersWithExact = new Set(
+        predictions?.filter(p => p.points_awarded === 2).map(p => p.user_id) || []
+      );
+      const percentWithExact = uniqueParticipants.size > 0 
+        ? Math.round((usersWithExact.size / uniqueParticipants.size) * 100) 
+        : 0;
+
+      let difficultyLabel = 'Normal';
+      if (percentWithExact < 20) difficultyLabel = 'Muy difícil';
+      else if (percentWithExact < 40) difficultyLabel = 'Complicada';
+      else if (percentWithExact > 60) difficultyLabel = 'Accesible';
+
+      // Check if most backed team was rewarded
+      let mostBackedTeamRewarded: boolean | null = null;
+      if (topTeam) {
+        const teamMatchIds = topTeam[1].matchIds;
+        const finishedTeamMatches = matches.filter(m => 
+          teamMatchIds.includes(m.id) && m.is_finished
+        );
+        if (finishedTeamMatches.length > 0) {
+          // Check if team won any of those matches
+          const teamWins = finishedTeamMatches.filter(m => {
+            const isHome = (m.home_team as any)?.name === topTeam[0];
+            if (isHome) {
+              return (m.home_score || 0) > (m.away_score || 0);
+            } else {
+              return (m.away_score || 0) > (m.home_score || 0);
+            }
+          });
+          mostBackedTeamRewarded = teamWins.length > 0;
+        }
+      }
+
+      // Most accurate score
+      let mostAccurateScore: string | null = null;
+      let mostAccurateScorePercent = 0;
+      const finishedMatches = matches.filter(m => m.is_finished);
+      finishedMatches.forEach(match => {
+        const matchPreds = predictions?.filter(p => p.match_id === match.id) || [];
+        const exactCount = matchPreds.filter(p => p.points_awarded === 2).length;
+        const percent = matchPreds.length > 0 ? (exactCount / matchPreds.length) * 100 : 0;
+        if (percent > mostAccurateScorePercent) {
+          mostAccurateScorePercent = percent;
+          mostAccurateScore = `${match.home_score}-${match.away_score}`;
+        }
+      });
+
+      // Remaining matches that can change standings
+      const remainingMatchesCanChange = matches.filter(m => !m.is_finished).length;
+
+      setInProgressStats({
+        percentWithExact,
+        difficultyLabel,
+        mostBackedTeam: topTeam?.[0] || null,
+        mostBackedTeamRewarded,
+        remainingMatchesCanChange,
+        mostAccurateScore,
+        mostAccurateScorePercent: Math.round(mostAccurateScorePercent)
+      });
+      setPreStats(null);
+    }
   };
 
   const getStateLabel = () => {
     switch (matchdayState) {
-      case 'open': return { text: 'Abierta', color: 'text-green-500' };
-      case 'in_progress': return { text: 'En curso', color: 'text-yellow-500' };
-      case 'closed': return { text: 'Finalizada', color: 'text-muted-foreground' };
+      case 'pre_start': return { text: 'Por iniciar', color: 'text-green-500', icon: Clock };
+      case 'in_progress': return { text: 'En curso', color: 'text-yellow-500', icon: Zap };
+      case 'closed': return { text: 'Finalizada', color: 'text-muted-foreground', icon: CheckCircle2 };
     }
   };
 
@@ -339,6 +424,14 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       return <span className="px-2 py-1 text-xs rounded-full bg-red-500/20 text-red-400 animate-pulse">En vivo</span>;
     }
     return <span className="px-2 py-1 text-xs rounded-full bg-primary/20 text-primary">Pendiente</span>;
+  };
+
+  const getExpectedGoalsLabel = (level: 'low' | 'medium' | 'high') => {
+    switch (level) {
+      case 'low': return { text: 'Pocos goles esperados', color: 'text-blue-400' };
+      case 'medium': return { text: 'Goles moderados esperados', color: 'text-yellow-400' };
+      case 'high': return { text: 'Muchos goles esperados', color: 'text-orange-400' };
+    }
   };
 
   if (loading) {
@@ -361,6 +454,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
   }
 
   const stateLabel = getStateLabel();
+  const StateIcon = stateLabel.icon;
 
   return (
     <div className="space-y-4 animate-slide-up">
@@ -370,13 +464,16 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-display">
               <BarChart3 className="w-4 h-4 text-secondary" />
-              Resumen de la Jornada
+              Resumen
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-lg font-semibold text-foreground">{matchdayName}</span>
-              <span className={`text-sm font-medium ${stateLabel.color}`}>{stateLabel.text}</span>
+              <span className={`flex items-center gap-1 text-sm font-medium ${stateLabel.color}`}>
+                <StateIcon className="w-3 h-3" />
+                {stateLabel.text}
+              </span>
             </div>
             
             {summary && (
@@ -396,11 +493,13 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Goal className="w-4 h-4 text-secondary" />
-                  <span className="text-sm text-muted-foreground">Goles:</span>
-                  <span className="font-semibold text-foreground">{summary.totalGoals}</span>
-                </div>
+                {matchdayState !== 'pre_start' && (
+                  <div className="flex items-center gap-2">
+                    <Goal className="w-4 h-4 text-secondary" />
+                    <span className="text-sm text-muted-foreground">Goles:</span>
+                    <span className="font-semibold text-foreground">{summary.totalGoals}</span>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
@@ -419,7 +518,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-display">
               <User className="w-4 h-4 text-secondary" />
-              Tu estado en la jornada
+              Tu estado
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -439,24 +538,30 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </span>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-2 rounded-lg bg-secondary/10">
-                    <p className="text-xl font-bold text-secondary">{userStatus.points}</p>
-                    <p className="text-xs text-muted-foreground">Puntos</p>
+                {matchdayState !== 'pre_start' ? (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 rounded-lg bg-secondary/10">
+                      <p className="text-xl font-bold text-secondary">{userStatus.points}</p>
+                      <p className="text-xs text-muted-foreground">Puntos</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-green-500/10">
+                      <p className="text-xl font-bold text-green-500">{userStatus.exactResults}</p>
+                      <p className="text-xs text-muted-foreground">Exactos</p>
+                    </div>
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <p className="text-xl font-bold text-primary">{userStatus.remainingMatches}</p>
+                      <p className="text-xs text-muted-foreground">Por jugar</p>
+                    </div>
                   </div>
-                  <div className="p-2 rounded-lg bg-green-500/10">
-                    <p className="text-xl font-bold text-green-500">{userStatus.exactResults}</p>
-                    <p className="text-xs text-muted-foreground">Exactos</p>
-                  </div>
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <p className="text-xl font-bold text-primary">{userStatus.remainingMatches}</p>
-                    <p className="text-xs text-muted-foreground">Por jugar</p>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    La jornada aún no comienza
+                  </p>
+                )}
 
-                {userStatus.remainingMatches > 0 && matchdayState !== 'closed' && (
+                {userStatus.remainingMatches > 0 && matchdayState === 'in_progress' && (
                   <p className="text-xs text-muted-foreground text-center">
-                    Aún puedes sumar hasta <span className="font-semibold text-secondary">{userStatus.remainingMatches * 2}</span> puntos
+                    Puedes sumar hasta <span className="font-semibold text-secondary">{userStatus.remainingMatches * 2}</span> puntos más
                   </p>
                 )}
               </div>
@@ -474,7 +579,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-display">
               <Star className="w-4 h-4 text-secondary" />
-              Partido clave
+              {matchdayState === 'pre_start' ? 'Partido más esperado' : 'Partido clave'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -482,7 +587,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 text-center">
-                    <p className="font-semibold text-foreground truncate">{keyMatch.homeTeam}</p>
+                    <p className="font-semibold text-foreground text-sm truncate">{keyMatch.homeTeam}</p>
                   </div>
                   <div className="px-3 text-center">
                     {keyMatch.isFinished || keyMatch.isLive ? (
@@ -494,7 +599,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                     )}
                   </div>
                   <div className="flex-1 text-center">
-                    <p className="font-semibold text-foreground truncate">{keyMatch.awayTeam}</p>
+                    <p className="font-semibold text-foreground text-sm truncate">{keyMatch.awayTeam}</p>
                   </div>
                 </div>
 
@@ -512,52 +617,138 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           </CardContent>
         </Card>
 
-        {/* 4️⃣ Estadísticas curiosas */}
+        {/* 4️⃣ Estadísticas - Dinámicas según estado */}
         <Card className="border-border/50 bg-card/50 backdrop-blur">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-display">
               <TrendingUp className="w-4 h-4 text-secondary" />
-              Estadísticas de la jornada
+              {matchdayState === 'pre_start' ? 'Expectativa' : 'Desempeño'}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {curiousStats ? (
+            {matchdayState === 'pre_start' && preStats ? (
               <div className="space-y-2">
-                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                  <Target className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs text-muted-foreground block">Marcador más repetido por todos</span>
-                    <span className="text-sm font-semibold text-foreground">{curiousStats.mostRepeatedScore}</span>
-                  </div>
-                </div>
-
-                {curiousStats.mostAccurateResult && (
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Resultado más acertado</span>
-                      <span className="text-sm font-semibold text-foreground">{curiousStats.mostAccurateResult}</span>
-                    </div>
-                  </div>
-                )}
-
-                {curiousStats.mostVotedToWin && (
-                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <Flame className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-muted-foreground block">Equipo favorito según predicciones</span>
-                      <span className="text-sm font-semibold text-foreground truncate block">{curiousStats.mostVotedToWin}</span>
-                    </div>
-                  </div>
-                )}
-
+                {/* Participación */}
                 <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
                   <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs text-muted-foreground block">Participantes con al menos 1 exacto</span>
-                    <span className="text-sm font-semibold text-foreground">{curiousStats.percentWithExact}% de los usuarios</span>
+                    <span className="text-sm font-semibold text-foreground">
+                      {preStats.participationPercent}% ya capturó su quiniela
+                    </span>
+                    <span className="text-xs text-muted-foreground block">
+                      {preStats.totalParticipants} participantes registrados
+                    </span>
                   </div>
                 </div>
+
+                {/* Equipo favorito */}
+                {preStats.mostBackedTeam && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Flame className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {preStats.mostBackedTeam}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Equipo más respaldado ({preStats.mostBackedTeamVotes} votos)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Expectativa de goles */}
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                  <Goal className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-sm font-semibold ${getExpectedGoalsLabel(preStats.expectedGoals).color}`}>
+                      {getExpectedGoalsLabel(preStats.expectedGoals).text}
+                    </span>
+                    <span className="text-xs text-muted-foreground block">
+                      Promedio predicho: {preStats.avgPredictedGoals} goles/partido
+                    </span>
+                  </div>
+                </div>
+
+                {/* Partido más anticipado */}
+                {preStats.mostAnticipatedMatch && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Star className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-muted-foreground block">Partido con más predicciones</span>
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {preStats.mostAnticipatedMatch}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : inProgressStats ? (
+              <div className="space-y-2">
+                {/* Dificultad */}
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                  <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 ${
+                    inProgressStats.percentWithExact < 30 ? 'text-red-400' : 
+                    inProgressStats.percentWithExact < 50 ? 'text-yellow-400' : 'text-green-400'
+                  }`} />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-foreground">
+                      Jornada {inProgressStats.difficultyLabel.toLowerCase()}
+                    </span>
+                    <span className="text-xs text-muted-foreground block">
+                      {inProgressStats.percentWithExact}% de usuarios con al menos un exacto
+                    </span>
+                  </div>
+                </div>
+
+                {/* Equipo favorito y resultado */}
+                {inProgressStats.mostBackedTeam && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Flame className={`w-4 h-4 shrink-0 mt-0.5 ${
+                      inProgressStats.mostBackedTeamRewarded === true ? 'text-green-500' : 
+                      inProgressStats.mostBackedTeamRewarded === false ? 'text-red-400' : 'text-orange-500'
+                    }`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-foreground truncate block">
+                        {inProgressStats.mostBackedTeam}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {inProgressStats.mostBackedTeamRewarded === true ? 'Confianza recompensada ✓' :
+                         inProgressStats.mostBackedTeamRewarded === false ? 'Confianza sin recompensa' :
+                         'Equipo más respaldado'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Resultado más acertado */}
+                {inProgressStats.mostAccurateScore && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-foreground">
+                        {inProgressStats.mostAccurateScore}
+                      </span>
+                      <span className="text-xs text-muted-foreground block">
+                        Resultado más acertado ({inProgressStats.mostAccurateScorePercent}% exactos)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Partidos restantes */}
+                {inProgressStats.remainingMatchesCanChange > 0 && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-foreground">
+                        {inProgressStats.remainingMatchesCanChange} partidos restantes
+                      </span>
+                      <span className="text-xs text-muted-foreground block">
+                        Aún pueden mover la tabla
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-4 text-muted-foreground">
