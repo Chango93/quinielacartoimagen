@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import MatchCard from '@/components/MatchCard';
 import { PredictionConfirmDialog } from '@/components/PredictionConfirmDialog';
 import CompetitionTypeSurvey from '@/components/CompetitionTypeSurvey';
+import QuinielaProgress from '@/components/QuinielaProgress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Loader2, Calendar } from 'lucide-react';
@@ -110,6 +111,16 @@ export default function Quiniela() {
   const currentMatchday = matchdays.find(m => m.id === selectedMatchday);
   const isOpen = currentMatchday?.is_open ?? false;
 
+  // Calculate progress
+  const completedPredictions = useMemo(() => {
+    return Object.values(predictions).filter(
+      p => p.predicted_home_score !== undefined && 
+           p.predicted_away_score !== undefined &&
+           p.predicted_home_score !== null &&
+           p.predicted_away_score !== null
+    ).length;
+  }, [predictions]);
+
   if (loading || loadingData) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
   }
@@ -143,6 +154,13 @@ export default function Quiniela() {
         </div>
       ) : (
         <>
+          {/* Progress bar */}
+          <QuinielaProgress 
+            total={matches.length}
+            completed={completedPredictions}
+            isOpen={isOpen}
+          />
+          
           <div className="space-y-4 mb-6">
             {matches.map(match => (
               <MatchCard
