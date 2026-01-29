@@ -196,6 +196,10 @@
     -moz-appearance: textfield;
   }
 
+  .score-input:focus {
+    animation: inputPop 0.2s ease-out;
+  }
+
   .score-input::-webkit-outer-spin-button,
   .score-input::-webkit-inner-spin-button {
     -webkit-appearance: none;
@@ -211,8 +215,22 @@
     box-shadow: var(--shadow-glow);
   }
 
+  .match-card.prediction-complete {
+    animation: completePulse 0.3s ease-out;
+  }
+
   .glow-text {
     text-shadow: 0 0 20px hsla(42, 90%, 50%, 0.5);
+  }
+
+  /* Safe area for mobile bottom nav */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Main content padding when bottom nav is visible */
+  .has-bottom-nav {
+    @apply pb-20 md:pb-0;
   }
 }
 
@@ -296,5 +314,29 @@
   100% {
     transform: scale(1) translateY(0);
     opacity: 1;
+  }
+}
+
+@keyframes inputPop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes completePulse {
+  0% {
+    box-shadow: 0 0 0 0 hsla(150, 60%, 35%, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px hsla(150, 60%, 35%, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsla(150, 60%, 35%, 0);
   }
 }
