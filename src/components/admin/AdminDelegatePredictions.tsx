@@ -63,7 +63,7 @@ export default function AdminDelegatePredictions() {
   const fetchInitialData = async () => {
     const [profilesRes, matchdaysRes] = await Promise.all([
       supabase.from('profiles').select('id, user_id, display_name, email').order('display_name'),
-      supabase.from('matchdays').select('*').order('name', { ascending: false })
+      supabase.from('matchdays').select('*').order('start_date', { ascending: false })
     ]);
 
     if (profilesRes.data) {
