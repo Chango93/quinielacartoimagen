@@ -604,33 +604,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
     }
   };
 
-  // Apodos picosillas según posición
-  const getPositionNickname = (position: number, total: number) => {
-    if (position === 0) return null;
-    
-    const percentage = (position / total) * 100;
-    
-    if (position === 1) return { text: '¡El mero mero! 👑', color: 'text-yellow-400' };
-    if (position === 2) return { text: 'Pisándole los talones 🔥', color: 'text-orange-400' };
-    if (position === 3) return { text: 'En el podio todavía 🥉', color: 'text-amber-600' };
-    if (percentage <= 25) return { text: 'Ahí la llevas 💪', color: 'text-green-400' };
-    if (percentage <= 50) return { text: 'En la pelea ⚽', color: 'text-blue-400' };
-    if (percentage <= 75) return { text: 'A rezarle al VAR 🙏', color: 'text-purple-400' };
-    if (position === total) return { text: 'Ya siéntese señora 😅', color: 'text-red-400' };
-    return { text: 'Todavía hay chance 🤞', color: 'text-muted-foreground' };
-  };
-
-  const getSeasonNickname = (position: number, total: number) => {
-    if (position === 0 || !position) return null;
-    
-    if (position === 1) return '¡Eres el líder! 🏆';
-    if (position === 2) return 'A un pasito de la gloria 🥈';
-    if (position === 3) return 'Bronce pero con estilo 🥉';
-    if (position <= 5) return 'En zona de liguilla 🎯';
-    if (position <= Math.ceil(total * 0.5)) return 'Media tabla, nada mal';
-    if (position <= Math.ceil(total * 0.75)) return 'Zona de repechaje 😬';
-    return 'En descenso... pero con fe 😇';
-  };
 
   if (loading) {
     return (
@@ -735,11 +708,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                         <span className="text-sm text-muted-foreground">Sin participar</span>
                       )}
                     </span>
-                    {userStatus.position > 0 && getPositionNickname(userStatus.position, userStatus.totalParticipants) && (
-                      <span className={`text-xs block ${getPositionNickname(userStatus.position, userStatus.totalParticipants)?.color}`}>
-                        {getPositionNickname(userStatus.position, userStatus.totalParticipants)?.text}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -757,9 +725,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                           A {userStatus.leaderPoints - userStatus.seasonPoints} pts del líder
                         </span>
                       )}
-                      <span className={`text-xs block ${userStatus.seasonPosition === 1 ? 'text-green-500' : 'text-muted-foreground'}`}>
-                        {getSeasonNickname(userStatus.seasonPosition, userStatus.totalParticipants)}
-                      </span>
                     </div>
                   </div>
                 )}
