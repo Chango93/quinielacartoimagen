@@ -95,12 +95,16 @@ export default function PositionEvolutionChart() {
         return;
       }
 
-      const processedMatchdays: MatchdayData[] = matchdaysData.map((md, idx) => ({
+      // Map all matchdays with their original index for shortName
+      const allMatchdays: MatchdayData[] = matchdaysData.map((md, idx) => ({
         id: md.id,
         name: md.name,
         shortName: `J${idx + 1}`,
         isConcluded: md.is_concluded
       }));
+
+      // Skip J1 (first matchday) - only show from J2 onwards
+      const processedMatchdays = allMatchdays.slice(1);
 
       setMatchdays(processedMatchdays);
 
