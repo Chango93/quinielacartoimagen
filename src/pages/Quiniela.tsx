@@ -38,7 +38,7 @@ export default function Quiniela() {
   }, [user]);
 
   const fetchMatchdays = async () => {
-    const { data } = await supabase.from('matchdays').select('*').order('name', { ascending: false });
+    const { data } = await supabase.from('matchdays').select('*').order('start_date', { ascending: false });
     if (data) {
       setMatchdays(data);
       // Find the last open matchday (first in descending order that's open)
