@@ -241,6 +241,27 @@ export type Database = {
         }
         Relationships: []
       }
+      world_cup_interest: {
+        Row: {
+          created_at: string
+          id: string
+          is_interested: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_interested: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_interested?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       profiles_public: {

@@ -10,6 +10,7 @@ import Header from "@/components/Header";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import CompetitionTypeSurvey from "@/components/CompetitionTypeSurvey";
+import WorldCupSurvey from "@/components/WorldCupSurvey";
 import { Loader2 } from "lucide-react";
 
 // Lazy loaded pages for better performance
@@ -40,6 +41,7 @@ const App = () => (
             <div className="min-h-screen has-bottom-nav">
               <Header />
               <CompetitionTypeSurvey />
+              <WorldCupSurvey />
               <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Index />} />
