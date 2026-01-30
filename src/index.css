@@ -121,9 +121,24 @@
 
 @layer components {
   .card-sports {
-    @apply bg-card rounded-xl border border-border;
+    @apply bg-card rounded-xl border border-border transition-all duration-300;
     background: var(--gradient-card);
     box-shadow: var(--shadow-card);
+  }
+
+  .card-sports:hover {
+    @apply border-primary/30;
+    box-shadow: var(--shadow-card), var(--shadow-glow);
+    transform: translateY(-2px);
+  }
+
+  .match-card {
+    @apply bg-card/80 rounded-xl border border-border p-4 transition-all duration-300;
+  }
+
+  .match-card:hover {
+    @apply border-primary/40 bg-card;
+    box-shadow: 0 4px 20px -4px hsla(150, 60%, 35%, 0.15);
   }
 
   .position-badge {
