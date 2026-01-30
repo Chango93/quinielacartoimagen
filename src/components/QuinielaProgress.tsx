@@ -37,6 +37,7 @@ export default function QuinielaProgress({ total, completed, isOpen }: QuinielaP
       <Progress 
         value={percentage} 
         className="h-2 bg-muted"
+        gradient
       />
       {!isComplete && isOpen && (
         <p className="text-xs text-muted-foreground mt-2">
