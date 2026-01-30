@@ -44,7 +44,7 @@ interface ParticipantEvolution {
   latestPosition: number;
 }
 
-type ViewMode = 'my_progress' | 'vs_leader' | 'top5';
+type ViewMode = 'my_progress' | 'vs_leader' | 'top5' | 'top10';
 
 export default function PositionEvolutionChart() {
   const { user } = useAuth();
@@ -52,6 +52,7 @@ export default function PositionEvolutionChart() {
   const [matchdays, setMatchdays] = useState<MatchdayData[]>([]);
   const [participants, setParticipants] = useState<ParticipantEvolution[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('my_progress');
+  const [isWeeklyOnly, setIsWeeklyOnly] = useState(false);
   const [userStats, setUserStats] = useState<{
     bestPosition: number;
     bestMatchday: string;
@@ -62,7 +63,22 @@ export default function PositionEvolutionChart() {
 
   useEffect(() => {
     fetchEvolutionData();
+    checkUserCompetitionType();
   }, [user]);
+
+  const checkUserCompetitionType = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('competition_type')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    if (data?.competition_type === 'weekly') {
+      setIsWeeklyOnly(true);
+      setViewMode('top10'); // Default to top10 for weekly users
+    }
+  };
 
   const fetchEvolutionData = async () => {
     setLoading(true);
@@ -207,6 +223,7 @@ export default function PositionEvolutionChart() {
     const currentUser = participants.find(p => p.isCurrentUser);
     const leader = participants.find(p => p.latestPosition === 1);
     const top5 = participants.filter(p => p.latestPosition <= 5);
+    const top10 = participants.filter(p => p.latestPosition <= 10);
 
     switch (viewMode) {
       case 'my_progress':
@@ -218,6 +235,8 @@ export default function PositionEvolutionChart() {
         return result;
       case 'top5':
         return top5;
+      case 'top10':
+        return top10;
       default:
         return [];
     }
@@ -287,19 +306,37 @@ export default function PositionEvolutionChart() {
           <CardTitle className="flex items-center gap-2 text-lg">
             <TrendingUp className="w-5 h-5 text-secondary" />
             Evolución de Posiciones
+            {isWeeklyOnly && (
+              <span className="text-xs font-normal text-muted-foreground ml-2">
+                (Competencia de Temporada)
+              </span>
+            )}
           </CardTitle>
           
-          <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-            <SelectTrigger className="w-[180px] bg-background/50">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="my_progress">Solo mi progreso</SelectItem>
-              <SelectItem value="vs_leader">Yo vs Líder</SelectItem>
-              <SelectItem value="top5">Top 5</SelectItem>
-            </SelectContent>
-          </Select>
+          {isWeeklyOnly ? (
+            <div className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full">
+              👀 Modo espectador
+            </div>
+          ) : (
+            <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+              <SelectTrigger className="w-[180px] bg-background/50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="my_progress">Solo mi progreso</SelectItem>
+                <SelectItem value="vs_leader">Yo vs Líder</SelectItem>
+                <SelectItem value="top5">Top 5</SelectItem>
+                <SelectItem value="top10">Top 10</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
+        
+        {isWeeklyOnly && (
+          <p className="text-sm text-muted-foreground mt-2 italic">
+            🏆 Así va la competencia de temporada. ¡La próxima jornada podrías unirte!
+          </p>
+        )}
       </CardHeader>
       
       <CardContent className="pt-0">
@@ -352,8 +389,8 @@ export default function PositionEvolutionChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* Stats Summary */}
-        {userStats && userStats.bestPosition > 0 && (
+        {/* Stats Summary - only for season participants */}
+        {!isWeeklyOnly && userStats && userStats.bestPosition > 0 && (
           <div className="mt-4 pt-4 border-t border-border/50">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
