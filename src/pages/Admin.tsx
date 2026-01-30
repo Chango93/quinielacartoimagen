@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock, CheckCircle2, UserCheck, ClipboardList, Globe } from 'lucide-react';
+import { Settings, Calendar, Trophy, Users, Plus, Save, Loader2, RefreshCw, Trash2, Pencil, Upload, Shield, FileText, Zap, CloudDownload, RotateCcw, Clock, CheckCircle2, UserCheck, ClipboardList, Globe, AlertTriangle } from 'lucide-react';
 import AdminPredictions from '@/components/admin/AdminPredictions';
 import AdminUsers from '@/components/admin/AdminUsers';
 import AdminQuickMatches from '@/components/admin/AdminQuickMatches';
@@ -20,6 +20,7 @@ import AdminDelegatePredictions from '@/components/admin/AdminDelegatePrediction
 import SyncHistory from '@/components/admin/SyncHistory';
 import AdminSurveyResults from '@/components/admin/AdminSurveyResults';
 import AdminWorldCupInterest from '@/components/admin/AdminWorldCupInterest';
+import AdminMissingPredictions from '@/components/admin/AdminMissingPredictions';
 
 interface Team { id: string; name: string; short_name: string; logo_url?: string | null; }
 interface Matchday { id: string; name: string; start_date: string; end_date: string | null; is_open: boolean; is_concluded: boolean; is_current: boolean; }
@@ -39,6 +40,7 @@ export default function Admin() {
     | 'delegate'
     | 'predictions'
     | 'users'
+    | 'missing'
     | 'survey'
     | 'worldcup'
   >('matchdays');
@@ -378,6 +380,7 @@ export default function Admin() {
           <TabsTrigger value="delegate"><UserCheck className="w-4 h-4 mr-2" />Capturar Por Otro</TabsTrigger>
           <TabsTrigger value="predictions"><FileText className="w-4 h-4 mr-2" />Predicciones</TabsTrigger>
           <TabsTrigger value="users"><Users className="w-4 h-4 mr-2" />Usuarios</TabsTrigger>
+          <TabsTrigger value="missing"><AlertTriangle className="w-4 h-4 mr-2" />Faltantes</TabsTrigger>
           <TabsTrigger value="survey"><ClipboardList className="w-4 h-4 mr-2" />Encuesta</TabsTrigger>
           <TabsTrigger value="worldcup"><Globe className="w-4 h-4 mr-2" />Mundial 2026</TabsTrigger>
         </TabsList>
@@ -717,6 +720,11 @@ export default function Admin() {
         {/* USUARIOS */}
         <TabsContent value="users" className="card-sports p-6">
           <AdminUsers />
+        </TabsContent>
+
+        {/* FALTANTES */}
+        <TabsContent value="missing" className="card-sports p-6">
+          <AdminMissingPredictions />
         </TabsContent>
 
         {/* ENCUESTA */}
