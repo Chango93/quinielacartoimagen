@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Crown, ChevronDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Crown, ChevronDown, Swords } from 'lucide-react';
 import { 
   Select, 
   SelectContent, 
@@ -44,7 +44,7 @@ interface ParticipantEvolution {
   latestPosition: number;
 }
 
-type ViewMode = 'my_progress' | 'vs_leader' | 'top5' | 'top10';
+type ViewMode = 'my_progress' | 'vs_leader' | 'vs_rival' | 'top5' | 'top10';
 
 export default function PositionEvolutionChart() {
   const { user } = useAuth();
@@ -52,6 +52,7 @@ export default function PositionEvolutionChart() {
   const [matchdays, setMatchdays] = useState<MatchdayData[]>([]);
   const [participants, setParticipants] = useState<ParticipantEvolution[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('my_progress');
+  const [selectedRival, setSelectedRival] = useState<string>('');
   const [isWeeklyOnly, setIsWeeklyOnly] = useState(false);
   const [userStats, setUserStats] = useState<{
     bestPosition: number;
@@ -228,15 +229,21 @@ export default function PositionEvolutionChart() {
     const leader = participants.find(p => p.latestPosition === 1);
     const top5 = participants.filter(p => p.latestPosition <= 5);
     const top10 = participants.filter(p => p.latestPosition <= 10);
+    const rival = selectedRival ? participants.find(p => p.userId === selectedRival) : null;
 
     switch (viewMode) {
       case 'my_progress':
         return currentUser ? [currentUser] : [];
       case 'vs_leader':
-        const result = [];
-        if (currentUser) result.push(currentUser);
-        if (leader && !leader.isCurrentUser) result.push(leader);
-        return result;
+        const resultLeader = [];
+        if (currentUser) resultLeader.push(currentUser);
+        if (leader && !leader.isCurrentUser) resultLeader.push(leader);
+        return resultLeader;
+      case 'vs_rival':
+        const resultRival = [];
+        if (currentUser) resultRival.push(currentUser);
+        if (rival && !rival.isCurrentUser) resultRival.push(rival);
+        return resultRival;
       case 'top5':
         return top5;
       case 'top10':
@@ -244,7 +251,14 @@ export default function PositionEvolutionChart() {
       default:
         return [];
     }
-  }, [viewMode, participants]);
+  }, [viewMode, participants, selectedRival]);
+
+  // Get available rivals (all participants except current user)
+  const availableRivals = useMemo(() => {
+    return participants
+      .filter(p => !p.isCurrentUser)
+      .sort((a, b) => a.latestPosition - b.latestPosition);
+  }, [participants]);
 
   // Color palette
   const getLineColor = (participant: ParticipantEvolution, index: number) => {
@@ -322,15 +336,46 @@ export default function PositionEvolutionChart() {
               👀 Modo espectador
             </div>
           ) : (
-            <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <Select value={viewMode} onValueChange={(v) => {
+              setViewMode(v as ViewMode);
+              // Reset rival when switching away from vs_rival
+              if (v !== 'vs_rival') {
+                setSelectedRival('');
+              }
+            }}>
               <SelectTrigger className="w-[180px] bg-background/50">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="my_progress">Solo mi progreso</SelectItem>
                 <SelectItem value="vs_leader">Yo vs Líder</SelectItem>
+                <SelectItem value="vs_rival">
+                  <span className="flex items-center gap-2">
+                    <Swords className="w-4 h-4" />
+                    1 vs 1
+                  </span>
+                </SelectItem>
                 <SelectItem value="top5">Top 5</SelectItem>
                 <SelectItem value="top10">Top 10</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          
+          {/* Rival selector - shown when vs_rival mode is active */}
+          {viewMode === 'vs_rival' && !isWeeklyOnly && (
+            <Select value={selectedRival} onValueChange={setSelectedRival}>
+              <SelectTrigger className="w-[180px] bg-background/50">
+                <SelectValue placeholder="Elige rival..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {availableRivals.map(rival => (
+                  <SelectItem key={rival.userId} value={rival.userId}>
+                    <span className="flex items-center gap-2">
+                      <span className="text-muted-foreground">#{rival.latestPosition}</span>
+                      {rival.displayName}
+                    </span>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
@@ -393,8 +438,56 @@ export default function PositionEvolutionChart() {
           </ResponsiveContainer>
         </div>
 
-        {/* Stats Summary - only for season participants */}
-        {!isWeeklyOnly && userStats && userStats.bestPosition > 0 && (
+        {/* 1v1 Stats - shown when rival is selected */}
+        {viewMode === 'vs_rival' && selectedRival && !isWeeklyOnly && (() => {
+          const currentUser = participants.find(p => p.isCurrentUser);
+          const rival = participants.find(p => p.userId === selectedRival);
+          const lastMd = matchdays[matchdays.length - 1];
+          
+          if (!currentUser || !rival || !lastMd) return null;
+          
+          const userPos = currentUser.positions.get(lastMd.id)?.position || 0;
+          const rivalPos = rival.positions.get(lastMd.id)?.position || 0;
+          const userPts = currentUser.positions.get(lastMd.id)?.cumulative || 0;
+          const rivalPts = rival.positions.get(lastMd.id)?.cumulative || 0;
+          const ptsDiff = userPts - rivalPts;
+          const isWinning = ptsDiff > 0;
+          const isTied = ptsDiff === 0;
+          
+          return (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <div className="flex items-center justify-between gap-4 p-3 rounded-lg bg-gradient-to-r from-secondary/10 via-background to-primary/10">
+                {/* User side */}
+                <div className="flex-1 text-center">
+                  <p className="font-semibold text-foreground">{currentUser.displayName}</p>
+                  <p className="text-2xl font-display text-secondary">#{userPos}</p>
+                  <p className="text-sm text-muted-foreground">{userPts} pts</p>
+                </div>
+                
+                {/* VS indicator */}
+                <div className="flex flex-col items-center gap-1">
+                  <Swords className="w-6 h-6 text-muted-foreground" />
+                  <div className={`text-sm font-semibold px-2 py-0.5 rounded ${
+                    isTied ? 'bg-muted text-muted-foreground' :
+                    isWinning ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {isTied ? 'Empate' : isWinning ? `+${ptsDiff} pts` : `${ptsDiff} pts`}
+                  </div>
+                </div>
+                
+                {/* Rival side */}
+                <div className="flex-1 text-center">
+                  <p className="font-semibold text-foreground">{rival.displayName}</p>
+                  <p className="text-2xl font-display text-primary">#{rivalPos}</p>
+                  <p className="text-sm text-muted-foreground">{rivalPts} pts</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Stats Summary - only for season participants (not in 1v1 mode) */}
+        {!isWeeklyOnly && viewMode !== 'vs_rival' && userStats && userStats.bestPosition > 0 && (
           <div className="mt-4 pt-4 border-t border-border/50">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
               <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
