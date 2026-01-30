@@ -40,6 +40,11 @@ interface UserStatus {
   points: number;
   exactResults: number;
   remainingMatches: number;
+  // Season standings comparison
+  seasonPosition: number | null;
+  seasonPoints: number | null;
+  leaderPoints: number | null;
+  isSeasonParticipant: boolean;
 }
 
 interface KeyMatch {
@@ -56,8 +61,6 @@ interface KeyMatch {
 
 // Stats para jornada pre-inicio
 interface PreMatchdayStats {
-  participationPercent: number;
-  totalParticipants: number;
   mostBackedTeam: string | null;
   mostBackedTeamVotes: number;
   expectedGoals: 'low' | 'medium' | 'high';
@@ -66,6 +69,10 @@ interface PreMatchdayStats {
   mostPolarizedPercent: number;
   mostUnbalancedMatch: string | null;
   mostUnbalancedPercent: number;
+  // Consenso vs Rebelde
+  consensusPercent: number;
+  rebelName: string | null;
+  rebelUniqueCount: number;
 }
 
 // Stats para jornada en curso/finalizada
@@ -171,12 +178,39 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       .eq('user_id', user.id)
       .in('match_id', matches?.map(m => m.id) || []);
 
+    // Get season leaderboard for comparison
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('competition_type')
+      .eq('user_id', user.id)
+      .single();
+
+    let seasonPosition: number | null = null;
+    let seasonPoints: number | null = null;
+    let leaderPoints: number | null = null;
+    const isSeasonParticipant = profile?.competition_type === 'season' || profile?.competition_type === 'both';
+
+    if (isSeasonParticipant) {
+      const { data: seasonLeaderboard } = await supabase.rpc('get_leaderboard');
+      if (seasonLeaderboard && seasonLeaderboard.length > 0) {
+        const userSeasonEntry = seasonLeaderboard.find(e => e.user_id === user.id);
+        const userSeasonIdx = seasonLeaderboard.findIndex(e => e.user_id === user.id);
+        seasonPosition = userSeasonIdx >= 0 ? userSeasonIdx + 1 : null;
+        seasonPoints = userSeasonEntry ? Number(userSeasonEntry.total_points || 0) : null;
+        leaderPoints = Number(seasonLeaderboard[0]?.total_points || 0);
+      }
+    }
+
     setUserStatus({
       position: position || 0,
       totalParticipants: leaderboard.length,
       points: Number(userEntry?.total_points || 0),
       exactResults: Number(userEntry?.exact_results || 0),
-      remainingMatches: predictions?.length || 0
+      remainingMatches: predictions?.length || 0,
+      seasonPosition,
+      seasonPoints,
+      leaderPoints,
+      isSeasonParticipant
     });
   };
 
@@ -307,9 +341,6 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
 
     if (!hasResults) {
       // PRE-MATCHDAY STATS
-      const participationPercent = totalRegisteredUsers > 0 
-        ? Math.round((uniqueParticipants.size / totalRegisteredUsers) * 100)
-        : 0;
 
       // Expected goals based on predictions
       const totalPredictedGoals = predictions?.reduce((sum, p) => 
@@ -363,9 +394,71 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         }
       });
 
+      // Consensus vs Rebel calculation
+      // Create a signature for each user's predictions
+      const userPredSignatures = new Map<string, { userId: string; signature: string; displayName: string }>();
+      const userPreds = new Map<string, { userId: string; predictions: Array<{ matchId: string; home: number; away: number }> }>();
+      
+      predictions?.forEach(p => {
+        const existing = userPreds.get(p.user_id) || { userId: p.user_id, predictions: [] };
+        existing.predictions.push({ matchId: p.match_id, home: p.predicted_home_score, away: p.predicted_away_score });
+        userPreds.set(p.user_id, existing);
+      });
+
+      // Get profiles for display names
+      const { data: profilesList } = await supabase
+        .from('profiles')
+        .select('user_id, display_name')
+        .in('user_id', Array.from(userPreds.keys()));
+
+      const profileMap = new Map(profilesList?.map(p => [p.user_id, p.display_name || 'Usuario']) || []);
+
+      userPreds.forEach((value, key) => {
+        // Sort predictions by match ID for consistent comparison
+        const sorted = [...value.predictions].sort((a, b) => a.matchId.localeCompare(b.matchId));
+        // Create signature: result type (H/D/A) for each match
+        const signature = sorted.map(p => {
+          if (p.home > p.away) return 'H';
+          if (p.home < p.away) return 'A';
+          return 'D';
+        }).join('');
+        userPredSignatures.set(key, { userId: key, signature, displayName: profileMap.get(key) || 'Usuario' });
+      });
+
+      // Count how many users have each signature
+      const signatureCounts = new Map<string, number>();
+      userPredSignatures.forEach(({ signature }) => {
+        signatureCounts.set(signature, (signatureCounts.get(signature) || 0) + 1);
+      });
+
+      // Find consensus (most common pattern) and rebel (most unique predictions)
+      let consensusPercent = 0;
+      let rebelName: string | null = null;
+      let rebelUniqueCount = 0;
+
+      if (signatureCounts.size > 0 && uniqueParticipants.size > 0) {
+        const maxCount = Math.max(...signatureCounts.values());
+        consensusPercent = Math.round((maxCount / uniqueParticipants.size) * 100);
+
+        // Find user with unique predictions (signature count = 1, with most predictions)
+        let bestRebel: { name: string; count: number } | null = null;
+        userPredSignatures.forEach(({ userId, signature, displayName }) => {
+          const count = signatureCounts.get(signature) || 0;
+          const predCount = userPreds.get(userId)?.predictions.length || 0;
+          if (count === 1 && predCount >= matches.length * 0.5) {
+            if (!bestRebel || predCount > bestRebel.count) {
+              bestRebel = { name: displayName, count: predCount };
+            }
+          }
+        });
+        
+        if (bestRebel) {
+          rebelName = bestRebel.name;
+          rebelUniqueCount = bestRebel.count;
+        }
+      }
+
       setPreStats({
-        participationPercent,
-        totalParticipants: uniqueParticipants.size,
         mostBackedTeam: topTeam?.[0] || null,
         mostBackedTeamVotes: topTeam?.[1].votes || 0,
         expectedGoals,
@@ -373,7 +466,10 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         mostPolarizedMatch,
         mostPolarizedPercent: Math.round(mostPolarizedPercent * 100),
         mostUnbalancedMatch,
-        mostUnbalancedPercent: Math.round(mostUnbalancedPercent)
+        mostUnbalancedPercent: Math.round(mostUnbalancedPercent),
+        consensusPercent,
+        rebelName,
+        rebelUniqueCount
       });
       setInProgressStats(null);
     } else {
@@ -601,7 +697,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-secondary" />
-                    <span className="text-muted-foreground">Posición</span>
+                    <span className="text-muted-foreground">Posición jornada</span>
                   </div>
                   <span className="text-2xl font-bold text-foreground">
                     {userStatus.position > 0 ? (
@@ -611,6 +707,27 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                     )}
                   </span>
                 </div>
+
+                {/* Season position comparison - only for season participants */}
+                {userStatus.isSeasonParticipant && userStatus.seasonPosition !== null && userStatus.leaderPoints !== null && (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-secondary/10 to-primary/10">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-secondary" />
+                      <span className="text-xs text-muted-foreground">General</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-lg font-bold text-foreground">#{userStatus.seasonPosition}</span>
+                      {userStatus.seasonPosition > 1 && userStatus.seasonPoints !== null && (
+                        <span className="text-xs text-muted-foreground block">
+                          A {userStatus.leaderPoints - userStatus.seasonPoints} pts del líder
+                        </span>
+                      )}
+                      {userStatus.seasonPosition === 1 && (
+                        <span className="text-xs text-green-500 block">¡Eres el líder! 🏆</span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {matchdayState !== 'pre_start' ? (
                   <div className="grid grid-cols-3 gap-2 text-center">
@@ -709,15 +826,21 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           <CardContent>
             {matchdayState === 'pre_start' && preStats ? (
               <div className="space-y-2">
-                {/* Participación */}
+                {/* Consenso vs Rebelde */}
                 <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
                   <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-semibold text-foreground">
-                      {preStats.participationPercent}% ya capturó su quiniela
+                      {preStats.consensusPercent > 0 
+                        ? `${preStats.consensusPercent}% coincide en sus predicciones`
+                        : 'Predicciones muy variadas'
+                      }
                     </span>
                     <span className="text-xs text-muted-foreground block">
-                      {preStats.totalParticipants} participantes registrados
+                      {preStats.rebelName 
+                        ? `🔥 ${preStats.rebelName} va contra la corriente`
+                        : 'Sin rebelde destacado aún'
+                      }
                     </span>
                   </div>
                 </div>
