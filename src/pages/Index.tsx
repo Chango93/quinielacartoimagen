@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import Leaderboard from '@/components/Leaderboard';
 import LiveMatchesBanner from '@/components/LiveMatchesBanner';
 import MatchdayDashboard from '@/components/MatchdayDashboard';
+import PositionEvolutionChart from '@/components/PositionEvolutionChart';
 import { Trophy, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 
 interface Matchday {
@@ -134,6 +135,9 @@ export default function Index() {
               isOpen={currentMatchday.is_open}
             />
           )}
+
+          {/* Gráfica de evolución de posiciones */}
+          <PositionEvolutionChart />
         </div>
 
         {/* Sidebar - Tabla */}
