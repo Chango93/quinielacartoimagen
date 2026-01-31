@@ -314,10 +314,17 @@ export default function PositionEvolutionChart() {
 
     const matchdayData = chartData.find(d => d.name === label);
     
+    // Sort payload by current position (entry.value is the position)
+    const sortedPayload = [...payload].sort((a: any, b: any) => {
+      const posA = a.value ?? Infinity;
+      const posB = b.value ?? Infinity;
+      return posA - posB;
+    });
+    
     return (
       <div className="bg-card/95 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg">
         <p className="font-semibold text-foreground mb-2">{matchdayData?.fullName || label}</p>
-        {payload.map((entry: any, idx: number) => {
+        {sortedPayload.map((entry: any, idx: number) => {
           const participant = participants.find(p => p.userId === entry.dataKey);
           const cumulativePoints = matchdayData?.[`${entry.dataKey}_points`] || 0;
           return (
