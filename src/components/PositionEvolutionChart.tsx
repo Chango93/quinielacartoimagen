@@ -109,17 +109,22 @@ export default function PositionEvolutionChart() {
 
       setMatchdays(processedMatchdays);
 
-      // Fetch leaderboard for each matchday
+      // Fetch leaderboard for each matchday and accumulate points
       const participantMap = new Map<string, ParticipantEvolution>();
       const cumulativePoints = new Map<string, number>();
 
+      // First pass: accumulate points from all matchdays
       for (const matchday of processedMatchdays) {
         const { data: leaderboard } = await supabase
           .rpc('get_matchday_leaderboard', { p_matchday_id: matchday.id });
 
         if (leaderboard) {
-          leaderboard.forEach((entry, idx) => {
-            const position = idx + 1;
+          // Filter by season/both competition type
+          const filteredLeaderboard = leaderboard.filter(
+            e => e.competition_type === 'season' || e.competition_type === 'both'
+          );
+          
+          filteredLeaderboard.forEach((entry) => {
             const points = Number(entry.total_points || 0);
             
             // Update cumulative points
@@ -133,19 +138,34 @@ export default function PositionEvolutionChart() {
                 displayName: entry.display_name || 'Usuario',
                 positions: new Map(),
                 isCurrentUser: entry.user_id === user?.id,
-                latestPosition: position
+                latestPosition: 0
               });
             }
 
             const participant = participantMap.get(entry.user_id)!;
+            // Store cumulative points for now, we'll calculate positions after
             participant.positions.set(matchday.id, { 
-              position, 
+              position: 0, // Will be calculated below
               points,
               cumulative: newCumulative
             });
-            participant.latestPosition = position;
           });
         }
+
+        // Calculate positions based on cumulative points after each matchday
+        const sortedByCumulative = Array.from(cumulativePoints.entries())
+          .sort((a, b) => b[1] - a[1]); // Sort by cumulative points descending
+        
+        sortedByCumulative.forEach(([userId, _], index) => {
+          const participant = participantMap.get(userId);
+          if (participant) {
+            const posData = participant.positions.get(matchday.id);
+            if (posData) {
+              posData.position = index + 1;
+            }
+            participant.latestPosition = index + 1;
+          }
+        });
       }
 
       const participantsList = Array.from(participantMap.values());
