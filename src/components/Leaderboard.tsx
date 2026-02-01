@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, Medal, Target, TrendingUp } from 'lucide-react';
+import { Trophy, Medal, Target, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MatchdayWinner from './MatchdayWinner';
 import SeasonLeader from './SeasonLeader';
+import LeaderboardEntryDetails from './LeaderboardEntryDetails';
 
 type CompetitionType = 'weekly' | 'season' | 'both';
 
@@ -28,6 +29,7 @@ interface LeaderboardProps {
   limit?: number;
   showTitle?: boolean;
   showTabs?: boolean;
+  topLimit?: number; // For showing top N in matchday
 }
 
 interface RawPrediction {
@@ -41,13 +43,18 @@ interface RawPrediction {
   competition_type?: CompetitionType;
 }
 
-export default function Leaderboard({ limit, showTitle = true, showTabs = true }: LeaderboardProps) {
+export default function Leaderboard({ limit, showTitle = true, showTabs = true, topLimit = 20 }: LeaderboardProps) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [matchdayEntries, setMatchdayEntries] = useState<LeaderboardEntry[]>([]);
   const [matchdays, setMatchdays] = useState<Matchday[]>([]);
   const [selectedMatchday, setSelectedMatchday] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'season' | 'matchday'>('matchday');
+  const [showAllMatchday, setShowAllMatchday] = useState(false);
+  const [showAllSeason, setShowAllSeason] = useState(false);
+  
+  // For details dialog
+  const [selectedUser, setSelectedUser] = useState<{ userId: string; displayName: string } | null>(null);
 
   // Store raw predictions so we can recalculate points client-side on score changes
   const matchdayPredictionsRef = useRef<RawPrediction[]>([]);
@@ -216,20 +223,21 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
     return position;
   };
 
-  const renderEntries = (data: LeaderboardEntry[]) => (
+  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true) => (
     <div className="space-y-2">
       {data.map((entry, index) => (
         <div
           key={entry.user_id}
-          className={`match-card flex items-center justify-between animate-fade-in`}
+          className={`match-card flex items-center justify-between animate-fade-in ${isClickable ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
           style={{ animationDelay: `${index * 50}ms` }}
+          onClick={() => isClickable && setSelectedUser({ userId: entry.user_id, displayName: entry.display_name })}
         >
           <div className="flex items-center gap-4">
             <div className={`position-badge ${getPositionStyle(index + 1)}`}>
               {getPositionIcon(index + 1)}
             </div>
             <div>
-              <p className="font-semibold text-foreground">
+              <p className={`font-semibold text-foreground ${isClickable ? 'hover:text-secondary transition-colors' : ''}`}>
                 {entry.display_name}
               </p>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -285,6 +293,12 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
     );
   }
 
+  const currentMatchdayName = matchdays.find(m => m.id === selectedMatchday)?.name || 'Jornada';
+
+  // Entries to show based on toggle
+  const matchdayTop = matchdayEntries.slice(0, topLimit);
+  const seasonTop = entries.slice(0, topLimit);
+
   return (
     <div className="space-y-4">
       {showTitle && (
@@ -300,7 +314,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
           <TabsTrigger value="season" className="flex-1">Temporada</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="season" className="mt-4">
+        <TabsContent value="season" className="mt-4 space-y-4">
           <SeasonLeader />
           {entries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -308,7 +322,67 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
               <p>Aún no hay participantes en temporada</p>
             </div>
           ) : (
-            renderEntries(entries)
+            <>
+              {/* Top 20 Season */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Top {topLimit}</h3>
+                {renderEntries(seasonTop, false)}
+              </div>
+              
+              {entries.length > topLimit && (
+                <button
+                  onClick={() => setShowAllSeason(!showAllSeason)}
+                  className="w-full py-2 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors bg-muted/30 rounded-lg"
+                >
+                  {showAllSeason ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      Ocultar resto
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      Ver todos ({entries.length} participantes)
+                    </>
+                  )}
+                </button>
+              )}
+
+              {showAllSeason && entries.length > topLimit && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Posiciones {topLimit + 1}+</h3>
+                  <div className="space-y-2">
+                    {entries.slice(topLimit).map((entry, index) => (
+                      <div
+                        key={entry.user_id}
+                        className="match-card flex items-center justify-between animate-fade-in"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="position-badge bg-muted text-muted-foreground">
+                            {topLimit + index + 1}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground">{entry.display_name}</p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Target className="w-3 h-3" />
+                                {entry.exact_results} exactos
+                              </span>
+                              <span>{entry.total_predictions} predicciones</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-display text-secondary glow-text">{entry.total_points}</p>
+                          <p className="text-xs text-muted-foreground">puntos</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -327,7 +401,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
           {selectedMatchday && (
             <MatchdayWinner 
               matchdayId={selectedMatchday} 
-              matchdayName={matchdays.find(m => m.id === selectedMatchday)?.name || 'Jornada'}
+              matchdayName={currentMatchdayName}
             />
           )}
 
@@ -337,10 +411,83 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true }
               <p>Sin datos para esta jornada</p>
             </div>
           ) : (
-            renderEntries(matchdayEntries)
+            <>
+              {/* Top 20 Matchday */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-2">Top {topLimit}</h3>
+                {renderEntries(matchdayTop)}
+              </div>
+              
+              {matchdayEntries.length > topLimit && (
+                <button
+                  onClick={() => setShowAllMatchday(!showAllMatchday)}
+                  className="w-full py-2 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors bg-muted/30 rounded-lg"
+                >
+                  {showAllMatchday ? (
+                    <>
+                      <ChevronUp className="w-4 h-4" />
+                      Ocultar resto
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-4 h-4" />
+                      Ver todos ({matchdayEntries.length} participantes)
+                    </>
+                  )}
+                </button>
+              )}
+
+              {showAllMatchday && matchdayEntries.length > topLimit && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">Posiciones {topLimit + 1}+</h3>
+                  <div className="space-y-2">
+                    {matchdayEntries.slice(topLimit).map((entry, index) => (
+                      <div
+                        key={entry.user_id}
+                        className="match-card flex items-center justify-between animate-fade-in cursor-pointer hover:bg-muted/50 transition-colors"
+                        style={{ animationDelay: `${index * 30}ms` }}
+                        onClick={() => setSelectedUser({ userId: entry.user_id, displayName: entry.display_name })}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="position-badge bg-muted text-muted-foreground">
+                            {topLimit + index + 1}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-foreground hover:text-secondary transition-colors">{entry.display_name}</p>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Target className="w-3 h-3" />
+                                {entry.exact_results} exactos
+                              </span>
+                              <span>{entry.total_predictions} predicciones</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-display text-secondary glow-text">{entry.total_points}</p>
+                          <p className="text-xs text-muted-foreground">puntos</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Details Dialog */}
+      {selectedUser && (
+        <LeaderboardEntryDetails
+          userId={selectedUser.userId}
+          displayName={selectedUser.displayName}
+          matchdayId={selectedMatchday}
+          matchdayName={currentMatchdayName}
+          isOpen={!!selectedUser}
+          onClose={() => setSelectedUser(null)}
+        />
+      )}
     </div>
   );
 }
