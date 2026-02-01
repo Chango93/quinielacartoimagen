@@ -224,69 +224,72 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
     return position;
   };
 
-  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true) => (
+  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true, positionOffset: number = 0) => (
     <TooltipProvider>
       <div className="space-y-2">
         {/* Hint for clickable entries */}
-        {isClickable && data.length > 0 && (
+        {isClickable && data.length > 0 && positionOffset === 0 && (
           <p className="text-xs text-muted-foreground text-center mb-3 animate-fade-in flex items-center justify-center gap-1">
             <ChevronRight className="w-3 h-3" />
             Toca un nombre para ver el desglose de puntos
           </p>
         )}
-        {data.map((entry, index) => (
-          <Tooltip key={entry.user_id}>
-            <TooltipTrigger asChild>
-              <div
-                className={`match-card flex items-center justify-between animate-fade-in group ${
-                  isClickable 
-                    ? 'cursor-pointer hover:bg-muted/50 hover:border-secondary/30 transition-all duration-200' 
-                    : ''
-                }`}
-                style={{ animationDelay: `${index * 50}ms` }}
-                onClick={() => isClickable && setSelectedUser({ userId: entry.user_id, displayName: entry.display_name })}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`position-badge ${getPositionStyle(index + 1)}`}>
-                    {getPositionIcon(index + 1)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div>
-                      <p className={`font-semibold text-foreground ${
-                        isClickable 
-                          ? 'group-hover:text-secondary transition-colors duration-200' 
-                          : ''
-                      }`}>
-                        {entry.display_name}
-                      </p>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Target className="w-3 h-3" />
-                          {entry.exact_results} exactos
-                        </span>
-                        <span>{entry.total_predictions} predicciones</span>
-                      </div>
+        {data.map((entry, index) => {
+          const position = positionOffset + index + 1;
+          return (
+            <Tooltip key={entry.user_id}>
+              <TooltipTrigger asChild>
+                <div
+                  className={`match-card flex items-center justify-between animate-fade-in group ${
+                    isClickable 
+                      ? 'cursor-pointer hover:bg-muted/50 hover:border-secondary/30 transition-all duration-200' 
+                      : ''
+                  }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  onClick={() => isClickable && setSelectedUser({ userId: entry.user_id, displayName: entry.display_name })}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`position-badge ${getPositionStyle(position)}`}>
+                      {getPositionIcon(position)}
                     </div>
-                    {isClickable && (
-                      <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-secondary group-hover:translate-x-1 transition-all duration-200" />
-                    )}
+                    <div className="flex items-center gap-2">
+                      <div>
+                        <p className={`font-semibold text-foreground ${
+                          isClickable 
+                            ? 'group-hover:text-secondary transition-colors duration-200' 
+                            : ''
+                        }`}>
+                          {entry.display_name}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Target className="w-3 h-3" />
+                            {entry.exact_results} exactos
+                          </span>
+                          <span>{entry.total_predictions} predicciones</span>
+                        </div>
+                      </div>
+                      {isClickable && (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-secondary group-hover:translate-x-1 transition-all duration-200" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-display text-secondary glow-text">
+                      {entry.total_points}
+                    </p>
+                    <p className="text-xs text-muted-foreground">puntos</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-2xl font-display text-secondary glow-text">
-                    {entry.total_points}
-                  </p>
-                  <p className="text-xs text-muted-foreground">puntos</p>
-                </div>
-              </div>
-            </TooltipTrigger>
-            {isClickable && (
-              <TooltipContent side="top" className="bg-popover border-border">
-                <p>Ver desglose de puntos</p>
-              </TooltipContent>
-            )}
-          </Tooltip>
-        ))}
+              </TooltipTrigger>
+              {isClickable && (
+                <TooltipContent side="top" className="bg-popover border-border">
+                  <p>Ver desglose de puntos</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          );
+        })}
       </div>
     </TooltipProvider>
   );
@@ -357,7 +360,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
               {/* Top 20 Season */}
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Top {topLimit}</h3>
-                {renderEntries(seasonTop, false)}
+                {renderEntries(seasonTop, true)}
               </div>
               
               {entries.length > topLimit && (
@@ -382,35 +385,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
               {showAllSeason && entries.length > topLimit && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Posiciones {topLimit + 1}+</h3>
-                  <div className="space-y-2">
-                    {entries.slice(topLimit).map((entry, index) => (
-                      <div
-                        key={entry.user_id}
-                        className="match-card flex items-center justify-between animate-fade-in"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="position-badge bg-muted text-muted-foreground">
-                            {topLimit + index + 1}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-foreground">{entry.display_name}</p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Target className="w-3 h-3" />
-                                {entry.exact_results} exactos
-                              </span>
-                              <span>{entry.total_predictions} predicciones</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-display text-secondary glow-text">{entry.total_points}</p>
-                          <p className="text-xs text-muted-foreground">puntos</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {renderEntries(entries.slice(topLimit), true, topLimit)}
                 </div>
               )}
             </>
