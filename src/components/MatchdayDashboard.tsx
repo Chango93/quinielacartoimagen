@@ -82,8 +82,7 @@ interface InProgressStats {
   mostBackedTeam: string | null;
   mostBackedTeamRewarded: boolean | null;
   remainingMatchesCanChange: number;
-  mostAccurateScore: string | null;
-  mostAccurateScorePercent: number;
+  averagePoints: number;
   mostPolarizedMatch: string | null;
   mostPolarizedPercent: number;
   mostUnbalancedMatch: string | null;
@@ -507,19 +506,14 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         }
       }
 
-      // Most accurate score
-      let mostAccurateScore: string | null = null;
-      let mostAccurateScorePercent = 0;
-      const finishedMatches = matches.filter(m => m.is_finished);
-      finishedMatches.forEach(match => {
-        const matchPreds = predictions?.filter(p => p.match_id === match.id) || [];
-        const exactCount = matchPreds.filter(p => p.points_awarded === 2).length;
-        const percent = matchPreds.length > 0 ? (exactCount / matchPreds.length) * 100 : 0;
-        if (percent > mostAccurateScorePercent) {
-          mostAccurateScorePercent = percent;
-          mostAccurateScore = `${match.home_score}-${match.away_score}`;
-        }
+      // Average points calculation
+      const userPoints = new Map<string, number>();
+      predictions?.forEach(p => {
+        const currentPoints = userPoints.get(p.user_id) || 0;
+        userPoints.set(p.user_id, currentPoints + (p.points_awarded || 0));
       });
+      const totalUserPoints = Array.from(userPoints.values()).reduce((sum, pts) => sum + pts, 0);
+      const averagePoints = userPoints.size > 0 ? Math.round((totalUserPoints / userPoints.size) * 10) / 10 : 0;
 
       // Remaining matches that can change standings
       const remainingMatchesCanChange = matches.filter(m => !m.is_finished).length;
@@ -567,8 +561,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         mostBackedTeam: topTeam?.[0] || null,
         mostBackedTeamRewarded,
         remainingMatchesCanChange,
-        mostAccurateScore,
-        mostAccurateScorePercent: Math.round(mostAccurateScorePercent),
+        averagePoints,
         mostPolarizedMatch,
         mostPolarizedPercent: Math.round(mostPolarizedPercent * 100),
         mostUnbalancedMatch,
@@ -912,16 +905,24 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </div>
                 )}
 
-                {/* Resultado más acertado */}
-                {inProgressStats.mostAccurateScore && (
+                {/* Tú vs Promedio */}
+                {userStatus && (
                   <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <Target className={`w-4 h-4 shrink-0 mt-0.5 ${
+                      userStatus.points > inProgressStats.averagePoints ? 'text-green-500' : 
+                      userStatus.points < inProgressStats.averagePoints ? 'text-red-400' : 'text-yellow-400'
+                    }`} />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-semibold text-foreground">
-                        {inProgressStats.mostAccurateScore}
+                        Tú vs promedio
                       </span>
                       <span className="text-xs text-muted-foreground block">
-                        Resultado más acertado ({inProgressStats.mostAccurateScorePercent}% exactos)
+                        {userStatus.points > inProgressStats.averagePoints 
+                          ? `+${(userStatus.points - inProgressStats.averagePoints).toFixed(1)} pts sobre el promedio (${inProgressStats.averagePoints})`
+                          : userStatus.points < inProgressStats.averagePoints
+                            ? `${(userStatus.points - inProgressStats.averagePoints).toFixed(1)} pts del promedio (${inProgressStats.averagePoints})`
+                            : `Estás en el promedio (${inProgressStats.averagePoints} pts)`
+                        }
                       </span>
                     </div>
                   </div>
