@@ -73,6 +73,7 @@ interface PreMatchdayStats {
   consensusPercent: number;
   rebelName: string | null;
   rebelUniqueCount: number;
+  totalParticipants: number;
 }
 
 // Stats para jornada en curso/finalizada
@@ -468,7 +469,8 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
         mostUnbalancedPercent: Math.round(mostUnbalancedPercent),
         consensusPercent,
         rebelName,
-        rebelUniqueCount
+        rebelUniqueCount,
+        totalParticipants: uniqueParticipants.size
       });
       setInProgressStats(null);
     } else {
@@ -824,8 +826,10 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-semibold text-foreground">
-                      {preStats.consensusPercent > 0 
+                      {preStats.consensusPercent > 0 && preStats.totalParticipants > 2
                         ? `${preStats.consensusPercent}% coincide en sus predicciones`
+                        : preStats.consensusPercent > 0 && preStats.totalParticipants <= 2
+                        ? `${preStats.totalParticipants} participante${preStats.totalParticipants !== 1 ? 's' : ''} con predicciones similares`
                         : 'Predicciones muy variadas'
                       }
                     </span>
@@ -847,7 +851,7 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                         {preStats.mostBackedTeam}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Equipo más respaldado ({preStats.mostBackedTeamVotes} votos)
+                        Equipo más respaldado ({preStats.mostBackedTeamVotes} {preStats.mostBackedTeamVotes === 1 ? 'voto' : 'votos'})
                       </span>
                     </div>
                   </div>
