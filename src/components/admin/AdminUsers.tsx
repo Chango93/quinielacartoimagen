@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Users, Save } from 'lucide-react';
+import { Loader2, Users, Save, Pencil, X, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 type CompetitionType = 'weekly' | 'season' | 'both';
@@ -17,12 +18,18 @@ interface Profile {
   competition_type: CompetitionType;
 }
 
+interface EditingUser {
+  email: string;
+  display_name: string;
+}
+
 export default function AdminUsers() {
   const { toast } = useToast();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [changes, setChanges] = useState<Record<string, CompetitionType>>({});
+  const [editing, setEditing] = useState<Record<string, EditingUser>>({});
 
   useEffect(() => {
     fetchProfiles();
@@ -44,7 +51,7 @@ export default function AdminUsers() {
     setChanges(prev => ({ ...prev, [userId]: newType }));
   };
 
-  const saveChange = async (profile: Profile) => {
+  const saveTypeChange = async (profile: Profile) => {
     const newType = changes[profile.user_id];
     if (!newType) return;
     
@@ -67,6 +74,72 @@ export default function AdminUsers() {
         return next;
       });
     }
+    setSaving(null);
+  };
+
+  const startEditing = (profile: Profile) => {
+    setEditing(prev => ({
+      ...prev,
+      [profile.user_id]: {
+        email: profile.email,
+        display_name: profile.display_name || '',
+      }
+    }));
+  };
+
+  const cancelEditing = (userId: string) => {
+    setEditing(prev => {
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
+  };
+
+  const saveUserEdit = async (profile: Profile) => {
+    const edit = editing[profile.user_id];
+    if (!edit) return;
+
+    const emailChanged = edit.email !== profile.email;
+    const nameChanged = edit.display_name !== (profile.display_name || '');
+
+    if (!emailChanged && !nameChanged) {
+      cancelEditing(profile.user_id);
+      return;
+    }
+
+    setSaving(profile.user_id);
+
+    try {
+      const body: Record<string, string> = { target_user_id: profile.user_id };
+      if (emailChanged) body.email = edit.email;
+      if (nameChanged) body.display_name = edit.display_name;
+
+      const { data, error } = await supabase.functions.invoke('admin-update-user', {
+        body,
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: 'Usuario actualizado',
+        description: `${edit.display_name || edit.email} actualizado correctamente${emailChanged ? ' (email sincronizado en auth)' : ''}`,
+      });
+
+      setProfiles(prev => prev.map(p =>
+        p.user_id === profile.user_id
+          ? { ...p, email: edit.email, display_name: edit.display_name || null }
+          : p
+      ));
+      cancelEditing(profile.user_id);
+    } catch (err: any) {
+      toast({
+        title: 'Error al actualizar',
+        description: err.message || 'No se pudo actualizar el usuario',
+        variant: 'destructive',
+      });
+    }
+
     setSaving(null);
   };
 
@@ -106,6 +179,9 @@ export default function AdminUsers() {
           <li>• <Badge variant="default">Solo Temporada</Badge> - Participa solo en el acumulado de temporada</li>
           <li>• <Badge variant="outline">Ambos</Badge> - Participa en jornadas y acumulado de temporada</li>
         </ul>
+        <p className="text-xs text-muted-foreground mt-3">
+          💡 Haz clic en <Pencil className="w-3 h-3 inline" /> para editar el nombre o email de un usuario. El email se actualiza en auth y en el perfil.
+        </p>
       </div>
 
       <div className="rounded-lg border border-border overflow-hidden">
@@ -122,15 +198,42 @@ export default function AdminUsers() {
           <TableBody>
             {profiles.map(profile => {
               const currentType = changes[profile.user_id] || profile.competition_type;
-              const hasChange = changes[profile.user_id] && changes[profile.user_id] !== profile.competition_type;
+              const hasTypeChange = changes[profile.user_id] && changes[profile.user_id] !== profile.competition_type;
+              const isEditing = !!editing[profile.user_id];
+              const editData = editing[profile.user_id];
               
               return (
                 <TableRow key={profile.id} className="border-border">
                   <TableCell className="font-medium text-foreground">
-                    {profile.display_name || 'Sin nombre'}
+                    {isEditing ? (
+                      <Input
+                        value={editData.display_name}
+                        onChange={e => setEditing(prev => ({
+                          ...prev,
+                          [profile.user_id]: { ...prev[profile.user_id], display_name: e.target.value }
+                        }))}
+                        className="h-8 text-sm"
+                        placeholder="Nombre"
+                      />
+                    ) : (
+                      profile.display_name || 'Sin nombre'
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {profile.email}
+                    {isEditing ? (
+                      <Input
+                        type="email"
+                        value={editData.email}
+                        onChange={e => setEditing(prev => ({
+                          ...prev,
+                          [profile.user_id]: { ...prev[profile.user_id], email: e.target.value }
+                        }))}
+                        className="h-8 text-sm"
+                        placeholder="Email"
+                      />
+                    ) : (
+                      profile.email
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={getTypeBadgeVariant(profile.competition_type)}>
@@ -153,19 +256,53 @@ export default function AdminUsers() {
                     </Select>
                   </TableCell>
                   <TableCell>
-                    {hasChange && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => saveChange(profile)}
-                        disabled={saving === profile.user_id}
-                      >
-                        {saving === profile.user_id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Save className="w-4 h-4" />
-                        )}
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {isEditing ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => saveUserEdit(profile)}
+                            disabled={saving === profile.user_id}
+                          >
+                            {saving === profile.user_id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Check className="w-4 h-4 text-green-500" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => cancelEditing(profile.user_id)}
+                            disabled={saving === profile.user_id}
+                          >
+                            <X className="w-4 h-4 text-red-400" />
+                          </Button>
+                        </>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => startEditing(profile)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      )}
+                      {hasTypeChange && !isEditing && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => saveTypeChange(profile)}
+                          disabled={saving === profile.user_id}
+                        >
+                          {saving === profile.user_id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               );
