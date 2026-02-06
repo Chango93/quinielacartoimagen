@@ -53,7 +53,7 @@ serve(async (req) => {
       });
     }
 
-    const { target_user_id, email, display_name } = await req.json();
+    const { target_user_id, email, display_name, password } = await req.json();
 
     if (!target_user_id) {
       return new Response(JSON.stringify({ error: "target_user_id required" }), {
@@ -64,18 +64,35 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Update auth.users email if provided
+    // Update auth.users if email or password provided
+    const authUpdates: Record<string, any> = {};
     if (email) {
+      authUpdates.email = email;
+      authUpdates.email_confirm = true;
+    }
+    if (password) {
+      if (password.length < 6) {
+        return new Response(JSON.stringify({ error: "Password must be at least 6 characters" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      authUpdates.password = password;
+    }
+
+    if (Object.keys(authUpdates).length > 0) {
       const { error: authError } = await adminClient.auth.admin.updateUserById(
         target_user_id,
-        { email, email_confirm: true }
+        authUpdates
       );
       if (authError) {
+        console.error("Auth update error:", authError);
         return new Response(JSON.stringify({ error: `Auth update failed: ${authError.message}` }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      console.log("Auth updated for user:", target_user_id, { emailChanged: !!email, passwordChanged: !!password });
     }
 
     // Update profiles table

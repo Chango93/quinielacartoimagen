@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Users, Save, Pencil, X, Check } from 'lucide-react';
+import { Loader2, Users, Save, Pencil, X, Check, KeyRound } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 
 type CompetitionType = 'weekly' | 'season' | 'both';
@@ -30,6 +31,8 @@ export default function AdminUsers() {
   const [saving, setSaving] = useState<string | null>(null);
   const [changes, setChanges] = useState<Record<string, CompetitionType>>({});
   const [editing, setEditing] = useState<Record<string, EditingUser>>({});
+  const [resetPasswordUser, setResetPasswordUser] = useState<Profile | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   useEffect(() => {
     fetchProfiles();
@@ -140,6 +143,33 @@ export default function AdminUsers() {
       });
     }
 
+    setSaving(null);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordUser || !newPassword) return;
+    if (newPassword.length < 6) {
+      toast({ title: 'Error', description: 'La contraseña debe tener al menos 6 caracteres', variant: 'destructive' });
+      return;
+    }
+
+    setSaving(resetPasswordUser.user_id);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-update-user', {
+        body: { target_user_id: resetPasswordUser.user_id, password: newPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: 'Contraseña actualizada',
+        description: `La contraseña de ${resetPasswordUser.display_name || resetPasswordUser.email} fue cambiada exitosamente`,
+      });
+      setResetPasswordUser(null);
+      setNewPassword('');
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'No se pudo cambiar la contraseña', variant: 'destructive' });
+    }
     setSaving(null);
   };
 
@@ -281,13 +311,24 @@ export default function AdminUsers() {
                           </Button>
                         </>
                       ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => startEditing(profile)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditing(profile)}
+                            title="Editar usuario"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => { setResetPasswordUser(profile); setNewPassword(''); }}
+                            title="Cambiar contraseña"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                          </Button>
+                        </>
                       )}
                       {hasTypeChange && !isEditing && (
                         <Button 
@@ -310,6 +351,37 @@ export default function AdminUsers() {
           </TableBody>
         </Table>
       </div>
+      {/* Password Reset Dialog */}
+      <Dialog open={!!resetPasswordUser} onOpenChange={(open) => { if (!open) { setResetPasswordUser(null); setNewPassword(''); } }}>
+        <DialogContent className="bg-background border-border">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Cambiar contraseña</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Usuario: <strong className="text-foreground">{resetPasswordUser?.display_name || resetPasswordUser?.email}</strong>
+            </p>
+            <Input
+              type="password"
+              placeholder="Nueva contraseña (mín. 6 caracteres)"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setResetPasswordUser(null); setNewPassword(''); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={!newPassword || newPassword.length < 6 || saving === resetPasswordUser?.user_id}
+            >
+              {saving === resetPasswordUser?.user_id ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Guardar contraseña
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
