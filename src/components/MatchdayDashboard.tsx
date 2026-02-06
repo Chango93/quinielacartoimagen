@@ -821,54 +821,72 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
           <CardContent>
             {matchdayState === 'pre_start' && preStats ? (
               <div className="space-y-2">
-                {/* Consenso vs Rebelde */}
-                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                  <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-foreground">
-                      {preStats.consensusPercent > 0 && preStats.totalParticipants > 2
-                        ? `${preStats.consensusPercent}% coincide en sus predicciones`
-                        : preStats.consensusPercent > 0 && preStats.totalParticipants <= 2
-                        ? `${preStats.totalParticipants} participante${preStats.totalParticipants !== 1 ? 's' : ''} con predicciones similares`
-                        : 'Predicciones muy variadas'
-                      }
-                    </span>
-                    <span className="text-xs text-muted-foreground block">
-                      {preStats.rebelName 
-                        ? `🔥 ${preStats.rebelName} va contra la corriente`
-                        : 'Sin rebelde destacado aún'
-                      }
-                    </span>
-                  </div>
-                </div>
-
-                {/* Equipo favorito */}
-                {preStats.mostBackedTeam && (
+                {preStats.totalParticipants < 3 ? (
+                  /* Pocos participantes: mensaje simplificado */
                   <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                    <Flame className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold text-foreground truncate block">
-                        {preStats.mostBackedTeam}
+                      <span className="text-sm font-semibold text-foreground">
+                        {preStats.totalParticipants === 0
+                          ? 'Aún no hay predicciones'
+                          : `${preStats.totalParticipants} participante${preStats.totalParticipants !== 1 ? 's' : ''} ha${preStats.totalParticipants !== 1 ? 'n' : ''} enviado predicciones`
+                        }
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        Equipo más respaldado ({preStats.mostBackedTeamVotes} {preStats.mostBackedTeamVotes === 1 ? 'voto' : 'votos'})
+                      <span className="text-xs text-muted-foreground block">
+                        Se necesitan más para generar estadísticas
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Suficientes participantes: stats completas */
+                  <>
+                    {/* Consenso vs Rebelde */}
+                    <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                      <Users className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-foreground">
+                          {preStats.consensusPercent}% coincide en sus predicciones
+                        </span>
+                        <span className="text-xs text-muted-foreground block">
+                          {preStats.rebelName 
+                            ? `🔥 ${preStats.rebelName} va contra la corriente`
+                            : 'Sin rebelde destacado aún'
+                          }
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Equipo favorito */}
+                    {preStats.mostBackedTeam && (
+                      <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                        <Flame className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold text-foreground truncate block">
+                            {preStats.mostBackedTeam}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            Equipo más respaldado ({preStats.mostBackedTeamVotes} {preStats.mostBackedTeamVotes === 1 ? 'voto' : 'votos'})
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Expectativa de goles - solo si hay datos */}
+                {preStats.totalParticipants > 0 && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                    <Goal className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-semibold ${getExpectedGoalsLabel(preStats.expectedGoals).color}`}>
+                        {getExpectedGoalsLabel(preStats.expectedGoals).text}
+                      </span>
+                      <span className="text-xs text-muted-foreground block">
+                        Promedio predicho: {preStats.avgPredictedGoals} goles/partido
                       </span>
                     </div>
                   </div>
                 )}
-
-                {/* Expectativa de goles */}
-                <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
-                  <Goal className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <span className={`text-sm font-semibold ${getExpectedGoalsLabel(preStats.expectedGoals).color}`}>
-                      {getExpectedGoalsLabel(preStats.expectedGoals).text}
-                    </span>
-                    <span className="text-xs text-muted-foreground block">
-                      Promedio predicho: {preStats.avgPredictedGoals} goles/partido
-                    </span>
-                  </div>
-                </div>
 
               </div>
             ) : inProgressStats ? (
