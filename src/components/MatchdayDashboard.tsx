@@ -61,8 +61,8 @@ interface KeyMatch {
 
 // Stats para jornada pre-inicio
 interface PreMatchdayStats {
-  mostBackedTeam: string | null;
-  mostBackedTeamVotes: number;
+  expectedBlowoutMatch: string | null;
+  expectedBlowoutAvgDiff: number;
   expectedGoals: 'low' | 'medium' | 'high';
   avgPredictedGoals: number;
   mostPolarizedMatch: string | null;
@@ -80,8 +80,9 @@ interface PreMatchdayStats {
 interface InProgressStats {
   percentWithExact: number;
   difficultyLabel: string;
-  mostBackedTeam: string | null;
-  mostBackedTeamRewarded: boolean | null;
+  expectedBlowoutMatch: string | null;
+  expectedBlowoutAvgDiff: number;
+  actualBlowoutDiff: number | null;
   remainingMatchesCanChange: number;
   averagePoints: number;
   mostPolarizedMatch: string | null;
@@ -309,35 +310,22 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
     const matchesWithScores = matches.filter(m => m.home_score !== null && m.away_score !== null);
     const hasResults = matchesWithScores.length > 0;
 
-    // Calculate team votes
-    const teamWinVotes = new Map<string, { votes: number; matchIds: string[] }>();
-    predictions?.forEach(p => {
-      const match = matches.find(m => m.id === p.match_id);
-      if (match) {
-        if (p.predicted_home_score > p.predicted_away_score) {
-          const team = (match.home_team as any)?.name;
-          if (team) {
-            const current = teamWinVotes.get(team) || { votes: 0, matchIds: [] };
-            teamWinVotes.set(team, { 
-              votes: current.votes + 1, 
-              matchIds: [...current.matchIds, match.id] 
-            });
-          }
-        } else if (p.predicted_away_score > p.predicted_home_score) {
-          const team = (match.away_team as any)?.name;
-          if (team) {
-            const current = teamWinVotes.get(team) || { votes: 0, matchIds: [] };
-            teamWinVotes.set(team, { 
-              votes: current.votes + 1, 
-              matchIds: [...current.matchIds, match.id] 
-            });
-          }
-        }
+    // Calculate expected blowout (match with highest avg predicted goal difference)
+    let expectedBlowoutMatch: string | null = null;
+    let expectedBlowoutAvgDiff = 0;
+
+    matches.forEach(match => {
+      const matchPreds = predictions?.filter(p => p.match_id === match.id) || [];
+      if (matchPreds.length < 2) return;
+
+      const avgDiff = matchPreds.reduce((sum, p) => 
+        sum + Math.abs(p.predicted_home_score - p.predicted_away_score), 0) / matchPreds.length;
+
+      if (avgDiff > expectedBlowoutAvgDiff) {
+        expectedBlowoutAvgDiff = avgDiff;
+        expectedBlowoutMatch = `${(match.home_team as any)?.name} vs ${(match.away_team as any)?.name}`;
       }
     });
-
-    const topTeam = Array.from(teamWinVotes.entries())
-      .sort((a, b) => b[1].votes - a[1].votes)[0];
 
     if (!hasResults) {
       // PRE-MATCHDAY STATS
@@ -459,8 +447,8 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       }
 
       setPreStats({
-        mostBackedTeam: topTeam?.[0] || null,
-        mostBackedTeamVotes: topTeam?.[1].votes || 0,
+        expectedBlowoutMatch,
+        expectedBlowoutAvgDiff: Math.round(expectedBlowoutAvgDiff * 10) / 10,
         expectedGoals,
         avgPredictedGoals: Math.round(avgPredictedGoals * 10) / 10,
         mostPolarizedMatch,
@@ -487,24 +475,14 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       else if (percentWithExact < 40) difficultyLabel = 'Complicada';
       else if (percentWithExact > 60) difficultyLabel = 'Accesible';
 
-      // Check if most backed team was rewarded
-      let mostBackedTeamRewarded: boolean | null = null;
-      if (topTeam) {
-        const teamMatchIds = topTeam[1].matchIds;
-        const finishedTeamMatches = matches.filter(m => 
-          teamMatchIds.includes(m.id) && m.is_finished
+      // Check actual blowout diff for the expected blowout match
+      let actualBlowoutDiff: number | null = null;
+      if (expectedBlowoutMatch) {
+        const blowoutMatch = matches.find(m => 
+          `${(m.home_team as any)?.name} vs ${(m.away_team as any)?.name}` === expectedBlowoutMatch
         );
-        if (finishedTeamMatches.length > 0) {
-          // Check if team won any of those matches
-          const teamWins = finishedTeamMatches.filter(m => {
-            const isHome = (m.home_team as any)?.name === topTeam[0];
-            if (isHome) {
-              return (m.home_score || 0) > (m.away_score || 0);
-            } else {
-              return (m.away_score || 0) > (m.home_score || 0);
-            }
-          });
-          mostBackedTeamRewarded = teamWins.length > 0;
+        if (blowoutMatch && blowoutMatch.home_score !== null && blowoutMatch.away_score !== null) {
+          actualBlowoutDiff = Math.abs(blowoutMatch.home_score - blowoutMatch.away_score);
         }
       }
 
@@ -560,8 +538,9 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
       setInProgressStats({
         percentWithExact,
         difficultyLabel,
-        mostBackedTeam: topTeam?.[0] || null,
-        mostBackedTeamRewarded,
+        expectedBlowoutMatch,
+        expectedBlowoutAvgDiff: Math.round(expectedBlowoutAvgDiff * 10) / 10,
+        actualBlowoutDiff,
         remainingMatchesCanChange,
         averagePoints,
         mostPolarizedMatch,
@@ -856,16 +835,16 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                       </div>
                     </div>
 
-                    {/* Equipo favorito */}
-                    {preStats.mostBackedTeam && (
+                    {/* Goleada esperada */}
+                    {preStats.expectedBlowoutMatch && preStats.expectedBlowoutAvgDiff >= 1.5 && (
                       <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
                         <Flame className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-semibold text-foreground truncate block">
-                            {preStats.mostBackedTeam}
+                            {preStats.expectedBlowoutMatch}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            Equipo más respaldado ({preStats.mostBackedTeamVotes} {preStats.mostBackedTeamVotes === 1 ? 'voto' : 'votos'})
+                            Goleada esperada (dif. promedio: {preStats.expectedBlowoutAvgDiff})
                           </span>
                         </div>
                       </div>
@@ -907,21 +886,25 @@ export default function MatchdayDashboard({ matchdayId, matchdayName, isOpen }: 
                   </div>
                 </div>
 
-                {/* Equipo favorito y resultado */}
-                {inProgressStats.mostBackedTeam && (
+                {/* Goleada esperada y resultado */}
+                {inProgressStats.expectedBlowoutMatch && inProgressStats.expectedBlowoutAvgDiff >= 1.5 && (
                   <div className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
                     <Flame className={`w-4 h-4 shrink-0 mt-0.5 ${
-                      inProgressStats.mostBackedTeamRewarded === true ? 'text-green-500' : 
-                      inProgressStats.mostBackedTeamRewarded === false ? 'text-red-400' : 'text-orange-500'
+                      inProgressStats.actualBlowoutDiff !== null
+                        ? inProgressStats.actualBlowoutDiff >= 2 ? 'text-green-500' : 'text-red-400'
+                        : 'text-orange-500'
                     }`} />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-semibold text-foreground truncate block">
-                        {inProgressStats.mostBackedTeam}
+                        {inProgressStats.expectedBlowoutMatch}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {inProgressStats.mostBackedTeamRewarded === true ? 'Confianza recompensada ✓' :
-                         inProgressStats.mostBackedTeamRewarded === false ? 'Confianza sin recompensa' :
-                         'Equipo más respaldado'}
+                        {inProgressStats.actualBlowoutDiff !== null
+                          ? inProgressStats.actualBlowoutDiff >= 2 
+                            ? `¡Goleada confirmada! (dif. real: ${inProgressStats.actualBlowoutDiff})`
+                            : `Sin goleada (dif. real: ${inProgressStats.actualBlowoutDiff})`
+                          : `Goleada esperada (dif. promedio: ${inProgressStats.expectedBlowoutAvgDiff})`
+                        }
                       </span>
                     </div>
                   </div>
