@@ -54,6 +54,9 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
   const [showAllMatchday, setShowAllMatchday] = useState(false);
   const [showAllSeason, setShowAllSeason] = useState(false);
   
+  // Position changes for season tab
+  const [positionChanges, setPositionChanges] = useState<Map<string, number>>(new Map());
+  
   // For details dialog
   const [selectedUser, setSelectedUser] = useState<{ userId: string; displayName: string } | null>(null);
 
@@ -113,9 +116,75 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
       );
       const limitedData = limit ? seasonData.slice(0, limit) : seasonData;
       setEntries(limitedData);
+      
+      // Calculate position changes for season tab
+      await calculatePositionChanges(seasonData);
     }
     setLoading(false);
   }, [limit]);
+
+  const calculatePositionChanges = useCallback(async (currentSeasonData: LeaderboardEntry[]) => {
+    // Get concluded matchdays ordered by start_date desc
+    const { data: concludedMatchdays } = await supabase
+      .from('matchdays')
+      .select('id, name')
+      .eq('is_concluded', true)
+      .order('start_date', { ascending: false })
+      .limit(1);
+
+    if (!concludedMatchdays || concludedMatchdays.length === 0) {
+      setPositionChanges(new Map());
+      return;
+    }
+
+    const lastMatchdayId = concludedMatchdays[0].id;
+
+    // Get last matchday's individual points per user
+    const { data: lastMatchdayData } = await supabase.rpc('get_matchday_leaderboard', {
+      p_matchday_id: lastMatchdayId,
+    });
+
+    if (!lastMatchdayData) {
+      setPositionChanges(new Map());
+      return;
+    }
+
+    // Build previous season ranking by subtracting last matchday points from current totals
+    const lastMatchdayPoints = new Map<string, number>();
+    (lastMatchdayData as any[]).forEach(e => {
+      if (e.competition_type === 'season' || e.competition_type === 'both') {
+        lastMatchdayPoints.set(e.user_id, e.total_points);
+      }
+    });
+
+    const previousRanking = currentSeasonData
+      .map(e => ({
+        user_id: e.user_id,
+        total_points: e.total_points - (lastMatchdayPoints.get(e.user_id) || 0),
+        exact_results: e.exact_results,
+        display_name: e.display_name,
+      }))
+      .sort((a, b) => b.total_points - a.total_points || a.display_name.localeCompare(b.display_name));
+
+    // Build previous position map
+    const prevPositionMap = new Map<string, number>();
+    previousRanking.forEach((e, idx) => {
+      prevPositionMap.set(e.user_id, idx + 1);
+    });
+
+    // Current position map
+    const changes = new Map<string, number>();
+    currentSeasonData.forEach((e, idx) => {
+      const currentPos = idx + 1;
+      const prevPos = prevPositionMap.get(e.user_id);
+      if (prevPos !== undefined) {
+        // positive = moved up, negative = moved down
+        changes.set(e.user_id, prevPos - currentPos);
+      }
+    });
+
+    setPositionChanges(changes);
+  }, []);
 
   const fetchMatchdays = useCallback(async () => {
     const { data } = await supabase
@@ -224,7 +293,34 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
     return position;
   };
 
-  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true, positionOffset: number = 0) => (
+  const renderPositionChange = (userId: string) => {
+    const change = positionChanges.get(userId);
+    if (change === undefined || positionChanges.size === 0) return null;
+    
+    if (change > 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold" style={{ color: 'hsl(var(--positive))' }}>
+          <ChevronUp className="w-3 h-3" />
+          {change}
+        </span>
+      );
+    } else if (change < 0) {
+      return (
+        <span className="inline-flex items-center gap-0.5 text-xs font-semibold" style={{ color: 'hsl(var(--negative))' }}>
+          <ChevronDown className="w-3 h-3" />
+          {Math.abs(change)}
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center text-xs font-semibold text-muted-foreground">
+          –
+        </span>
+      );
+    }
+  };
+
+  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true, positionOffset: number = 0, showChanges: boolean = false) => (
     <TooltipProvider>
       <div className="space-y-2">
         {/* Hint for clickable entries */}
@@ -254,13 +350,16 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
                     </div>
                     <div className="flex items-center gap-2">
                       <div>
-                        <p className={`font-semibold text-foreground ${
-                          isClickable 
-                            ? 'group-hover:text-secondary transition-colors duration-200' 
-                            : ''
-                        }`}>
-                          {entry.display_name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-semibold text-foreground ${
+                            isClickable 
+                              ? 'group-hover:text-secondary transition-colors duration-200' 
+                              : ''
+                          }`}>
+                            {entry.display_name}
+                          </p>
+                          {showChanges && renderPositionChange(entry.user_id)}
+                        </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Target className="w-3 h-3" />
@@ -293,39 +392,6 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
       </div>
     </TooltipProvider>
   );
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(limit || 5)].map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full bg-muted" />
-        ))}
-      </div>
-    );
-  }
-
-  if (!showTabs) {
-    if (entries.length === 0) {
-      return (
-        <div className="text-center py-8 text-muted-foreground">
-          <Trophy className="w-12 h-12 mx-auto mb-3 opacity-50" />
-          <p>Aún no hay participantes</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        {showTitle && (
-          <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-secondary" />
-            <h2 className="text-xl font-display text-foreground">Tabla General</h2>
-          </div>
-        )}
-        {renderEntries(entries)}
-      </div>
-    );
-  }
 
   const currentMatchdayName = matchdays.find(m => m.id === selectedMatchday)?.name || 'Jornada';
 
@@ -360,7 +426,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
               {/* Top 20 Season */}
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground mb-2">Top {topLimit}</h3>
-                {renderEntries(seasonTop, true)}
+                {renderEntries(seasonTop, true, 0, true)}
               </div>
               
               {entries.length > topLimit && (
@@ -385,7 +451,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
               {showAllSeason && entries.length > topLimit && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">Posiciones {topLimit + 1}+</h3>
-                  {renderEntries(entries.slice(topLimit), true, topLimit)}
+                  {renderEntries(entries.slice(topLimit), true, topLimit, true)}
                 </div>
               )}
             </>
