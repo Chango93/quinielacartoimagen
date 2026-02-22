@@ -124,61 +124,60 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
   }, [limit]);
 
   const calculatePositionChanges = useCallback(async (currentSeasonData: LeaderboardEntry[]) => {
-    // Get concluded matchdays ordered by start_date desc
-    const { data: concludedMatchdays } = await supabase
+    // Get non-concluded matchdays (active matchdays whose points shouldn't count for "previous" ranking)
+    const { data: activeMatchdays } = await supabase
       .from('matchdays')
-      .select('id, name')
-      .eq('is_concluded', true)
-      .order('start_date', { ascending: false })
-      .limit(1);
+      .select('id')
+      .eq('is_concluded', false);
 
-    if (!concludedMatchdays || concludedMatchdays.length === 0) {
+    if (!activeMatchdays || activeMatchdays.length === 0) {
       setPositionChanges(new Map());
       return;
     }
 
-    const lastMatchdayId = concludedMatchdays[0].id;
+    // Check there's at least one concluded matchday (otherwise no "previous" exists)
+    const { count } = await supabase
+      .from('matchdays')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_concluded', true);
 
-    // Get last matchday's individual points per user
-    const { data: lastMatchdayData } = await supabase.rpc('get_matchday_leaderboard', {
-      p_matchday_id: lastMatchdayId,
-    });
-
-    if (!lastMatchdayData) {
+    if (!count || count === 0) {
       setPositionChanges(new Map());
       return;
     }
 
-    // Build previous season ranking by subtracting last matchday points from current totals
-    const lastMatchdayPoints = new Map<string, number>();
-    (lastMatchdayData as any[]).forEach(e => {
-      if (e.competition_type === 'season' || e.competition_type === 'both') {
-        lastMatchdayPoints.set(e.user_id, e.total_points);
+    // Get points per user for each active (non-concluded) matchday
+    const activePoints = new Map<string, number>();
+    for (const md of activeMatchdays) {
+      const { data } = await supabase.rpc('get_matchday_leaderboard', { p_matchday_id: md.id });
+      if (data) {
+        (data as any[]).forEach(e => {
+          if (e.competition_type === 'season' || e.competition_type === 'both') {
+            activePoints.set(e.user_id, (activePoints.get(e.user_id) || 0) + Number(e.total_points));
+          }
+        });
       }
-    });
+    }
 
+    // Previous ranking = current totals minus active matchday points
     const previousRanking = currentSeasonData
       .map(e => ({
         user_id: e.user_id,
-        total_points: e.total_points - (lastMatchdayPoints.get(e.user_id) || 0),
-        exact_results: e.exact_results,
+        total_points: e.total_points - (activePoints.get(e.user_id) || 0),
         display_name: e.display_name,
       }))
       .sort((a, b) => b.total_points - a.total_points || a.display_name.localeCompare(b.display_name));
 
-    // Build previous position map
     const prevPositionMap = new Map<string, number>();
     previousRanking.forEach((e, idx) => {
       prevPositionMap.set(e.user_id, idx + 1);
     });
 
-    // Current position map
     const changes = new Map<string, number>();
     currentSeasonData.forEach((e, idx) => {
       const currentPos = idx + 1;
       const prevPos = prevPositionMap.get(e.user_id);
       if (prevPos !== undefined) {
-        // positive = moved up, negative = moved down
         changes.set(e.user_id, prevPos - currentPos);
       }
     });
