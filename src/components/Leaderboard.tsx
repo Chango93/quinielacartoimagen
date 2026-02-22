@@ -266,12 +266,18 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
           const lb = buildLeaderboard(matchdayPredictionsRef.current);
           const limitedData = limit ? lb.slice(0, limit) : lb;
           setMatchdayEntries(limitedData);
+          
+          // Also refresh season leaderboard so position arrows update live
+          fetchLeaderboard();
         }
       )
       .subscribe();
 
-    // Backup polling
-    const interval = setInterval(fetchMatchdayLeaderboard, 20000);
+    // Backup polling for both tabs
+    const interval = setInterval(() => {
+      fetchMatchdayLeaderboard();
+      fetchLeaderboard();
+    }, 20000);
 
     return () => {
       supabase.removeChannel(channel);
