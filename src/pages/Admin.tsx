@@ -367,9 +367,17 @@ export default function Admin() {
 
   return (
     <div className="container py-8">
-      <div className="flex items-center gap-2 mb-6">
-        <Settings className="w-6 h-6 text-secondary" />
-        <h1 className="text-3xl font-display text-foreground">Panel de Administrador</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Settings className="w-6 h-6 text-secondary" />
+          <h1 className="text-3xl font-display text-foreground">Panel de Administrador</h1>
+        </div>
+        <a href="https://lovable.dev/projects/e4f609a0-3efe-4050-912a-57b97b5c3380" target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Pencil className="w-4 h-4" />
+            <span className="hidden sm:inline">Editar en Lovable</span>
+          </Button>
+        </a>
       </div>
 
       <Tabs defaultValue="matchdays" className="space-y-6">
