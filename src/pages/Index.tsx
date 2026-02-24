@@ -7,6 +7,7 @@ import Leaderboard from '@/components/Leaderboard';
 import LiveMatchesBanner from '@/components/LiveMatchesBanner';
 import MatchdayDashboard from '@/components/MatchdayDashboard';
 import PositionEvolutionChart from '@/components/PositionEvolutionChart';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
 import { Trophy, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 
 interface Matchday {
@@ -69,6 +70,7 @@ export default function Index() {
 
   return (
     <div className="container py-8">
+      <AnnouncementBanner />
       <LiveMatchesBanner />
       <div className="grid lg:grid-cols-3 gap-8">
         {/* Columna principal */}

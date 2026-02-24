@@ -6,10 +6,11 @@ import { useToast } from '@/hooks/use-toast';
 import MatchCard from '@/components/MatchCard';
 import { PredictionConfirmDialog } from '@/components/PredictionConfirmDialog';
 import CompetitionTypeSurvey from '@/components/CompetitionTypeSurvey';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
 import QuinielaProgress from '@/components/QuinielaProgress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, Loader2, Calendar, Cloud, CloudOff, AlertTriangle } from 'lucide-react';
+import { Save, Loader2, Calendar, Cloud, CloudOff } from 'lucide-react';
 
 const STORAGE_KEY = 'quiniela_draft_';
 const AUTO_SAVE_DELAY = 2000; // 2 seconds debounce
@@ -327,6 +328,7 @@ export default function Quiniela() {
   return (
     <div className="container py-8 max-w-3xl">
       <CompetitionTypeSurvey />
+      <AnnouncementBanner />
       <div className="card-sports p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -356,15 +358,6 @@ export default function Quiniela() {
         </div>
       ) : (
         <>
-          <div className="mb-4 p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" />
-            <div className="text-sm text-foreground">
-              <p className="font-semibold mb-1">Partido pospuesto</p>
-              <p className="text-muted-foreground">
-                El partido <span className="font-medium text-foreground">Querétaro vs FC Juárez</span> (Jornada 7) ha sido reprogramado por la Liga BBVA MX. Fecha y hora por definir.
-              </p>
-            </div>
-          </div>
           <QuinielaProgress 
             total={matches.length}
             completed={completedPredictions}
