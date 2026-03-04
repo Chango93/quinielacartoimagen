@@ -8,7 +8,7 @@ verify_jwt = false
 
 [functions.auto-sync-results]
 verify_jwt = false
-schedule = "*/3 * * * *"
+schedule = "*/1 * * * *"
 
 [functions.fetch-fixtures]
 verify_jwt = false
