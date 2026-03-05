@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Trophy, Medal, Target, TrendingUp, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -354,7 +355,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
                       {getPositionIcon(position)}
                     </div>
                     <div className="flex items-center gap-2">
-                      <div>
+                        <div>
                         <div className="flex items-center gap-2">
                           <p className={`font-semibold text-foreground ${
                             isClickable 
@@ -363,6 +364,18 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
                           }`}>
                             {entry.display_name}
                           </p>
+                          <Badge 
+                            variant="outline" 
+                            className={`text-[10px] px-1.5 py-0 h-4 font-normal ${
+                              entry.competition_type === 'weekly' 
+                                ? 'border-amber-500/50 text-amber-500' 
+                                : entry.competition_type === 'season'
+                                ? 'border-primary/50 text-primary'
+                                : 'border-secondary/50 text-secondary'
+                            }`}
+                          >
+                            {entry.competition_type === 'weekly' ? 'S' : entry.competition_type === 'season' ? 'T' : 'S+T'}
+                          </Badge>
                           {showChanges && renderPositionChange(entry.user_id)}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">

@@ -8,6 +8,7 @@ import LiveMatchesBanner from '@/components/LiveMatchesBanner';
 import MatchdayDashboard from '@/components/MatchdayDashboard';
 import PositionEvolutionChart from '@/components/PositionEvolutionChart';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
+import ParticipantsSummary from '@/components/ParticipantsSummary';
 import { Trophy, Calendar, ChevronRight, Loader2 } from 'lucide-react';
 
 interface Matchday {
@@ -137,6 +138,9 @@ export default function Index() {
               isOpen={currentMatchday.is_open}
             />
           )}
+
+          {/* Participantes y bote */}
+          <ParticipantsSummary />
 
           {/* Gráfica de evolución de posiciones */}
           <PositionEvolutionChart />
