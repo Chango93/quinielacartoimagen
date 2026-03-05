@@ -103,7 +103,6 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
       .sort(
         (a, b) =>
           b.total_points - a.total_points ||
-          b.exact_results - a.exact_results ||
           a.display_name.localeCompare(b.display_name)
       );
   }, [calculatePoints]);
@@ -358,7 +357,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
         ranks.push(offset + 1);
       } else {
         const prev = data[index - 1];
-        if (entry.total_points === prev.total_points && entry.exact_results === prev.exact_results) {
+        if (entry.total_points === prev.total_points) {
           ranks.push(ranks[index - 1]);
         } else {
           ranks.push(offset + index + 1);
