@@ -171,12 +171,37 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
 
     const prevPositionMap = new Map<string, number>();
     previousRanking.forEach((e, idx) => {
-      prevPositionMap.set(e.user_id, idx + 1);
+      // Competition ranking for previous positions
+      if (idx === 0) {
+        prevPositionMap.set(e.user_id, 1);
+      } else {
+        const prev = previousRanking[idx - 1];
+        const prevRank = prevPositionMap.get(prev.user_id)!;
+        if (e.total_points === prev.total_points) {
+          prevPositionMap.set(e.user_id, prevRank);
+        } else {
+          prevPositionMap.set(e.user_id, idx + 1);
+        }
+      }
     });
 
     const changes = new Map<string, number>();
+    // Compute current ranks with competition ranking
+    const currentRanks: number[] = [];
     currentSeasonData.forEach((e, idx) => {
-      const currentPos = idx + 1;
+      if (idx === 0) {
+        currentRanks.push(1);
+      } else {
+        const prev = currentSeasonData[idx - 1];
+        if (e.total_points === prev.total_points && e.exact_results === prev.exact_results) {
+          currentRanks.push(currentRanks[idx - 1]);
+        } else {
+          currentRanks.push(idx + 1);
+        }
+      }
+    });
+    currentSeasonData.forEach((e, idx) => {
+      const currentPos = currentRanks[idx];
       const prevPos = prevPositionMap.get(e.user_id);
       if (prevPos !== undefined) {
         changes.set(e.user_id, prevPos - currentPos);
@@ -326,7 +351,26 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
     }
   };
 
-  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true, positionOffset: number = 0, showChanges: boolean = false) => (
+  const computeRanks = (data: LeaderboardEntry[], offset: number = 0): number[] => {
+    const ranks: number[] = [];
+    data.forEach((entry, index) => {
+      if (index === 0) {
+        ranks.push(offset + 1);
+      } else {
+        const prev = data[index - 1];
+        if (entry.total_points === prev.total_points && entry.exact_results === prev.exact_results) {
+          ranks.push(ranks[index - 1]);
+        } else {
+          ranks.push(offset + index + 1);
+        }
+      }
+    });
+    return ranks;
+  };
+
+  const renderEntries = (data: LeaderboardEntry[], isClickable: boolean = true, positionOffset: number = 0, showChanges: boolean = false) => {
+    const ranks = computeRanks(data, positionOffset);
+    return (
     <TooltipProvider>
       <div className="space-y-2">
         {/* Hint for clickable entries */}
@@ -337,7 +381,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
           </p>
         )}
         {data.map((entry, index) => {
-          const position = positionOffset + index + 1;
+          const position = ranks[index];
           return (
             <Tooltip key={entry.user_id}>
               <TooltipTrigger asChild>
@@ -409,7 +453,8 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
         })}
       </div>
     </TooltipProvider>
-  );
+    );
+  };
 
   const currentMatchdayName = matchdays.find(m => m.id === selectedMatchday)?.name || 'Jornada';
 
