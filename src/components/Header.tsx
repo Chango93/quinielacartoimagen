@@ -13,10 +13,8 @@ import {
 
 export default function Header() {
   const { user, isAdmin, signOut } = useAuth();
+  const { simulateNonAdmin, setSimulateNonAdmin, displayIsAdmin } = useAdminSimulation();
   const location = useLocation();
-  const [simulateNonAdmin, setSimulateNonAdmin] = useState(false);
-  
-  const displayIsAdmin = isAdmin && !simulateNonAdmin;
 
   const navItems = [
     { href: '/', label: 'Inicio', icon: LayoutDashboard },

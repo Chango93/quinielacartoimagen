@@ -73,6 +73,7 @@ const App = () => (
           </BrowserRouter>
         </ScoreAlertsProvider>
       </TooltipProvider>
+      </AdminSimulationProvider>
     </AuthProvider>
   </QueryClientProvider>
 );
