@@ -60,8 +60,8 @@ export default function ParticipantsSummary() {
     }
   }, [isAdmin]);
 
-  // Solo mostrar a admins
-  if (!isAdmin) {
+  // Solo mostrar a admins (respeta simulación)
+  if (!displayIsAdmin) {
     return null;
   }
 
