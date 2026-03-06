@@ -16,10 +16,16 @@ interface Participant {
 const WEEKLY_FEE = 50; // pesos por jugador semanal
 
 export default function ParticipantsSummary() {
+  const { isAdmin } = useAuth();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [weeklyWithPredictions, setWeeklyWithPredictions] = useState<Set<string>>(new Set());
   const [currentMatchdayName, setCurrentMatchdayName] = useState<string>('');
   const [loading, setLoading] = useState(true);
+
+  // Solo mostrar a admins
+  if (!isAdmin) {
+    return null;
+  }
 
   useEffect(() => {
     fetchData();
