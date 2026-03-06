@@ -12,3 +12,9 @@ schedule = "*/1 * * * *"
 
 [functions.fetch-fixtures]
 verify_jwt = false
+
+[functions.create-weekly-payment]
+verify_jwt = false
+
+[functions.verify-weekly-payment]
+verify_jwt = false

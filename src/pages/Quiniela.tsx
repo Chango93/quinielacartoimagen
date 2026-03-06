@@ -11,6 +11,7 @@ import QuinielaProgress from '@/components/QuinielaProgress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Loader2, Calendar, Cloud, CloudOff } from 'lucide-react';
+import WeeklyPaymentButton from '@/components/WeeklyPaymentButton';
 
 const STORAGE_KEY = 'quiniela_draft_';
 const AUTO_SAVE_DELAY = 2000; // 2 seconds debounce
