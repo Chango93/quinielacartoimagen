@@ -41,6 +41,50 @@ export type Database = {
         }
         Relationships: []
       }
+      matchday_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          matchday_id: string
+          status: string
+          stripe_session_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          matchday_id: string
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          matchday_id?: string
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "matchday_payments_matchday_id_fkey"
+            columns: ["matchday_id"]
+            isOneToOne: false
+            referencedRelation: "matchdays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matchdays: {
         Row: {
           competition_mode: Database["public"]["Enums"]["competition_type"]
