@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Trophy, LogOut, Settings, User, LayoutDashboard, ChevronDown, Menu } from 'lucide-react';
+import { Trophy, LogOut, Settings, User, LayoutDashboard, ChevronDown, Menu, Eye, EyeOff } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,9 @@ import {
 export default function Header() {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
+  const [simulateNonAdmin, setSimulateNonAdmin] = useState(false);
+  
+  const displayIsAdmin = isAdmin && !simulateNonAdmin;
 
   const navItems = [
     { href: '/', label: 'Inicio', icon: LayoutDashboard },
@@ -20,7 +24,7 @@ export default function Header() {
     { href: '/tabla', label: 'Tabla General', icon: Trophy },
   ];
 
-  if (isAdmin) {
+  if (displayIsAdmin) {
     navItems.push({ href: '/admin', label: 'Admin', icon: Settings });
   }
 
@@ -82,11 +86,32 @@ export default function Header() {
             <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium text-foreground">{user.email}</p>
-                {isAdmin && (
+                {displayIsAdmin && (
                   <p className="text-xs text-secondary">Administrador</p>
                 )}
               </div>
               <DropdownMenuSeparator />
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem 
+                    onClick={() => setSimulateNonAdmin(!simulateNonAdmin)}
+                    className="flex items-center gap-2"
+                  >
+                    {simulateNonAdmin ? (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        Ver como Admin
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        Ver como Usuario
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {/* Navegación móvil */}
               <div className="md:hidden">
                 {navItems.map((item) => {
