@@ -22,15 +22,6 @@ export default function ParticipantsSummary() {
   const [currentMatchdayName, setCurrentMatchdayName] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Solo mostrar a admins
-  if (!isAdmin) {
-    return null;
-  }
-
   const fetchData = async () => {
     // Fetch participants and current matchday in parallel
     const [profilesRes, matchdayRes] = await Promise.all([
@@ -60,6 +51,17 @@ export default function ParticipantsSummary() {
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchData();
+    }
+  }, [isAdmin]);
+
+  // Solo mostrar a admins
+  if (!isAdmin) {
+    return null;
+  }
 
   if (loading) {
     return (
