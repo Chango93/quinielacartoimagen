@@ -191,10 +191,7 @@ export default function AdminMissingPredictions() {
                     {usersWithMissing.map(user => (
                       <tr key={user.user_id} className="border-t border-border">
                         <td className="p-3">
-                          <div>
-                            <span className="font-medium text-foreground">{user.display_name}</span>
-                            <span className="text-muted-foreground text-xs block">{user.email}</span>
-                          </div>
+                          <span className="font-medium text-foreground">{user.display_name}</span>
                         </td>
                         <td className="p-3 hidden md:table-cell">
                           <Badge variant={user.competition_type === 'both' ? 'outline' : 'default'}>
@@ -246,10 +243,7 @@ export default function AdminMissingPredictions() {
                     {usersComplete.map(user => (
                       <tr key={user.user_id} className="border-t border-border">
                         <td className="p-3">
-                          <div>
-                            <span className="font-medium text-foreground">{user.display_name}</span>
-                            <span className="text-muted-foreground text-xs block">{user.email}</span>
-                          </div>
+                          <span className="font-medium text-foreground">{user.display_name}</span>
                         </td>
                         <td className="p-3 hidden md:table-cell">
                           <Badge variant={user.competition_type === 'both' ? 'outline' : 'default'}>
