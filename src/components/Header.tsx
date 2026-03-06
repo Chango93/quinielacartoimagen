@@ -86,7 +86,7 @@ export default function Header() {
             <DropdownMenuContent align="end" className="w-56 bg-popover border-border">
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium text-foreground">{user.email}</p>
-                {isAdmin && (
+                {displayIsAdmin && (
                   <p className="text-xs text-secondary">Administrador</p>
                 )}
               </div>
