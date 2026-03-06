@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 import { Users, Trophy, DollarSign, Zap, CheckCircle2, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +16,7 @@ interface Participant {
 const WEEKLY_FEE = 50; // pesos por jugador semanal
 
 export default function ParticipantsSummary() {
+  const { isAdmin } = useAuth();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [weeklyWithPredictions, setWeeklyWithPredictions] = useState<Set<string>>(new Set());
   const [currentMatchdayName, setCurrentMatchdayName] = useState<string>('');
@@ -23,6 +25,11 @@ export default function ParticipantsSummary() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Solo mostrar a admins
+  if (!isAdmin) {
+    return null;
+  }
 
   const fetchData = async () => {
     // Fetch participants and current matchday in parallel
