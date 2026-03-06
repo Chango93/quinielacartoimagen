@@ -14,6 +14,9 @@ import {
 export default function Header() {
   const { user, isAdmin, signOut } = useAuth();
   const location = useLocation();
+  const [simulateNonAdmin, setSimulateNonAdmin] = useState(false);
+  
+  const displayIsAdmin = isAdmin && !simulateNonAdmin;
 
   const navItems = [
     { href: '/', label: 'Inicio', icon: LayoutDashboard },
@@ -21,7 +24,7 @@ export default function Header() {
     { href: '/tabla', label: 'Tabla General', icon: Trophy },
   ];
 
-  if (isAdmin) {
+  if (displayIsAdmin) {
     navItems.push({ href: '/admin', label: 'Admin', icon: Settings });
   }
 
