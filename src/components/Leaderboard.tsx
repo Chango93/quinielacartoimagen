@@ -192,7 +192,7 @@ export default function Leaderboard({ limit, showTitle = true, showTabs = true, 
         currentRanks.push(1);
       } else {
         const prev = currentSeasonData[idx - 1];
-        if (e.total_points === prev.total_points && e.exact_results === prev.exact_results) {
+        if (e.total_points === prev.total_points) {
           currentRanks.push(currentRanks[idx - 1]);
         } else {
           currentRanks.push(idx + 1);
