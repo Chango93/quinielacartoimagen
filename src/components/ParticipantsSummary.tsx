@@ -22,14 +22,14 @@ export default function ParticipantsSummary() {
   const [currentMatchdayName, setCurrentMatchdayName] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   // Solo mostrar a admins
   if (!isAdmin) {
     return null;
   }
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const fetchData = async () => {
     // Fetch participants and current matchday in parallel
