@@ -52,6 +52,17 @@ export default function ParticipantsSummary() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    if (isAdmin) {
+      fetchData();
+    }
+  }, [isAdmin]);
+
+  // Solo mostrar a admins
+  if (!isAdmin) {
+    return null;
+  }
+
   if (loading) {
     return (
       <div className="card-sports p-6 space-y-3">
