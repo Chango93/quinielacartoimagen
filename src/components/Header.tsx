@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
-import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
+import { useAdminSimulation } from '@/lib/adminSimulation';
 import { Button } from '@/components/ui/button';
 import { Trophy, LogOut, Settings, User, LayoutDashboard, ChevronDown, Menu, Eye, EyeOff } from 'lucide-react';
 import {
@@ -13,10 +13,8 @@ import {
 
 export default function Header() {
   const { user, isAdmin, signOut } = useAuth();
+  const { simulateNonAdmin, setSimulateNonAdmin, displayIsAdmin } = useAdminSimulation();
   const location = useLocation();
-  const [simulateNonAdmin, setSimulateNonAdmin] = useState(false);
-  
-  const displayIsAdmin = isAdmin && !simulateNonAdmin;
 
   const navItems = [
     { href: '/', label: 'Inicio', icon: LayoutDashboard },
