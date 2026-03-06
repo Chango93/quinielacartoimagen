@@ -91,6 +91,27 @@ export default function Header() {
                 )}
               </div>
               <DropdownMenuSeparator />
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem 
+                    onClick={() => setSimulateNonAdmin(!simulateNonAdmin)}
+                    className="flex items-center gap-2"
+                  >
+                    {simulateNonAdmin ? (
+                      <>
+                        <Eye className="w-4 h-4" />
+                        Ver como Admin
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="w-4 h-4" />
+                        Ver como Usuario
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {/* Navegación móvil */}
               <div className="md:hidden">
                 {navItems.map((item) => {
