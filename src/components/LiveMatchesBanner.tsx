@@ -168,7 +168,30 @@ export default function LiveMatchesBanner() {
   );
 }
 
+function getMatchMinute(matchDate: string): string {
+  const start = new Date(matchDate).getTime();
+  const now = Date.now();
+  const diffMin = Math.floor((now - start) / 60000);
+  
+  if (diffMin < 0) return '';
+  if (diffMin <= 45) return `${diffMin}'`;
+  if (diffMin > 45 && diffMin <= 60) return 'MT';
+  if (diffMin > 60 && diffMin <= 105) return `${diffMin - 15}'`; // subtract ~15 min halftime
+  return '90+';
+}
+
 function MatchRow({ match, isFlashing, isLive }: { match: LiveMatch; isFlashing: boolean; isLive: boolean }) {
+  const [minute, setMinute] = useState('');
+
+  useEffect(() => {
+    if (!isLive) return;
+    setMinute(getMatchMinute(match.match_date));
+    const interval = setInterval(() => {
+      setMinute(getMatchMinute(match.match_date));
+    }, 30000); // update every 30s
+    return () => clearInterval(interval);
+  }, [isLive, match.match_date]);
+
   return (
     <div 
       className={`
@@ -185,19 +208,27 @@ function MatchRow({ match, isFlashing, isLive }: { match: LiveMatch; isFlashing:
           <span className="text-foreground font-medium truncate text-sm">{match.home_team.short_name}</span>
         </div>
         
-        {/* Score */}
-        <div className={`
-          flex items-center gap-2 px-3 py-1.5 rounded-lg font-display text-lg
-          ${isFlashing 
-            ? 'bg-yellow-500 text-black animate-bounce' 
-            : isLive 
-              ? 'bg-red-500/20 text-red-400' 
-              : 'bg-muted/50 text-foreground'
-          }
-        `}>
-          <span className="w-5 text-center">{match.home_score ?? 0}</span>
-          <span className="text-muted-foreground text-sm">-</span>
-          <span className="w-5 text-center">{match.away_score ?? 0}</span>
+        {/* Score + Minute */}
+        <div className="flex flex-col items-center gap-0.5">
+          <div className={`
+            flex items-center gap-2 px-3 py-1.5 rounded-lg font-display text-lg
+            ${isFlashing 
+              ? 'bg-yellow-500 text-black animate-bounce' 
+              : isLive 
+                ? 'bg-red-500/20 text-red-400' 
+                : 'bg-muted/50 text-foreground'
+            }
+          `}>
+            <span className="w-5 text-center">{match.home_score ?? 0}</span>
+            <span className="text-muted-foreground text-sm">-</span>
+            <span className="w-5 text-center">{match.away_score ?? 0}</span>
+          </div>
+          {isLive && minute && (
+            <span className="text-[10px] font-bold text-red-400 animate-pulse">{minute}</span>
+          )}
+          {!isLive && match.is_finished && (
+            <span className="text-[10px] font-medium text-muted-foreground">Final</span>
+          )}
         </div>
         
         {/* Away team */}
