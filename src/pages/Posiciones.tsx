@@ -138,6 +138,9 @@ export default function Posiciones() {
                             <img src={entry.team_badge} alt="" className="w-6 h-6 object-contain" />
                           )}
                           <span className="font-medium text-foreground truncate">{entry.team_name}</span>
+                          {entry.live_adjustment && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" title="Resultado en vivo" />
+                          )}
                         </div>
                       </td>
                       <td className="text-center py-3 px-1 text-muted-foreground">{entry.played}</td>
