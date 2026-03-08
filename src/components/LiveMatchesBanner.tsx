@@ -18,6 +18,7 @@ interface LiveMatch {
   match_date: string;
   is_finished: boolean;
   updated_at: string;
+  match_status: string | null;
 }
 
 export default function LiveMatchesBanner() {
