@@ -343,7 +343,8 @@ serve(async (req) => {
               .update({ 
                 home_score: homeScore, 
                 away_score: awayScore,
-                is_finished: isFinished 
+                is_finished: isFinished,
+                match_status: event.strStatus || null,
               })
               .eq('id', match.id);
 

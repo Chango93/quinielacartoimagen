@@ -18,6 +18,7 @@ interface LiveMatch {
   match_date: string;
   is_finished: boolean;
   updated_at: string;
+  match_status: string | null;
 }
 
 export default function LiveMatchesBanner() {
@@ -168,16 +169,39 @@ export default function LiveMatchesBanner() {
   );
 }
 
-function getMatchMinute(matchDate: string): string {
-  const start = new Date(matchDate).getTime();
-  const now = Date.now();
-  const diffMin = Math.floor((now - start) / 60000);
+function getDisplayMinute(match: LiveMatch): string {
+  const status = (match.match_status || '').trim();
   
-  if (diffMin < 0) return '';
-  if (diffMin <= 45) return `${diffMin}'`;
-  if (diffMin > 45 && diffMin <= 60) return 'MT';
-  if (diffMin > 60 && diffMin <= 105) return `${diffMin - 15}'`; // subtract ~15 min halftime
-  return '90+';
+  // If API provides a numeric minute like "45'" or "67", use it directly
+  const minuteMatch = status.match(/^(\d+)['′]?$/);
+  if (minuteMatch) return `${minuteMatch[1]}'`;
+  
+  // Check for common status strings from TheSportsDB
+  const lower = status.toLowerCase();
+  if (lower === 'ht' || lower === 'halftime' || lower === 'half time') return 'MT';
+  if (lower === '1h') return '1T';
+  if (lower === '2h') return '2T';
+  if (lower === 'et') return 'TE'; // Extra time
+  if (lower === 'ft' || lower.includes('finished') || lower === 'aet' || lower === 'pen') return 'Final';
+  
+  // If we have a status with minute info embedded (e.g. "45+2'")
+  const extraTimeMatch = status.match(/^(\d+)\+(\d+)['′]?$/);
+  if (extraTimeMatch) return `${extraTimeMatch[1]}+${extraTimeMatch[2]}'`;
+  
+  // Fallback: calculate from match_date if no API status
+  if (!status || lower === 'ns' || lower === 'not started') {
+    const start = new Date(match.match_date).getTime();
+    const now = Date.now();
+    const diffMin = Math.floor((now - start) / 60000);
+    if (diffMin < 0) return '';
+    if (diffMin <= 45) return `${diffMin}'`;
+    if (diffMin > 45 && diffMin <= 60) return 'MT';
+    if (diffMin > 60 && diffMin <= 105) return `${diffMin - 15}'`;
+    return '90+';
+  }
+  
+  // If status is something else, show it as-is
+  return status;
 }
 
 function MatchRow({ match, isFlashing, isLive }: { match: LiveMatch; isFlashing: boolean; isLive: boolean }) {
@@ -185,12 +209,12 @@ function MatchRow({ match, isFlashing, isLive }: { match: LiveMatch; isFlashing:
 
   useEffect(() => {
     if (!isLive) return;
-    setMinute(getMatchMinute(match.match_date));
+    setMinute(getDisplayMinute(match));
     const interval = setInterval(() => {
-      setMinute(getMatchMinute(match.match_date));
-    }, 30000); // update every 30s
+      setMinute(getDisplayMinute(match));
+    }, 30000);
     return () => clearInterval(interval);
-  }, [isLive, match.match_date]);
+  }, [isLive, match.match_date, match.match_status]);
 
   return (
     <div 

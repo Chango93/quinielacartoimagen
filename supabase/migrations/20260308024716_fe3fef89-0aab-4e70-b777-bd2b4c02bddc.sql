@@ -1,0 +1,1 @@
+ALTER TABLE public.matches ADD COLUMN match_status text DEFAULT null;

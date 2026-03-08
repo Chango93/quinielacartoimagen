@@ -134,6 +134,7 @@ export type Database = {
           id: string
           is_finished: boolean
           match_date: string
+          match_status: string | null
           matchday_id: string
           updated_at: string
         }
@@ -146,6 +147,7 @@ export type Database = {
           id?: string
           is_finished?: boolean
           match_date: string
+          match_status?: string | null
           matchday_id: string
           updated_at?: string
         }
@@ -158,6 +160,7 @@ export type Database = {
           id?: string
           is_finished?: boolean
           match_date?: string
+          match_status?: string | null
           matchday_id?: string
           updated_at?: string
         }
