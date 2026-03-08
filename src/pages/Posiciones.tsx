@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, RefreshCw, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Trophy, RefreshCw, Radio } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface StandingEntry {
@@ -15,6 +15,7 @@ interface StandingEntry {
   goals_against: number;
   goal_difference: number;
   points: number;
+  live_adjustment: boolean;
 }
 
 export default function Posiciones() {
@@ -22,6 +23,7 @@ export default function Posiciones() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [hasLive, setHasLive] = useState(false);
 
   const fetchStandings = async () => {
     setLoading(true);
@@ -31,6 +33,7 @@ export default function Posiciones() {
       if (fnError) throw fnError;
       if (data?.standings) {
         setStandings(data.standings);
+        setHasLive(data.has_live || false);
         setLastUpdated(new Date());
       } else {
         setError('No se pudieron obtener las posiciones');
@@ -45,6 +48,9 @@ export default function Posiciones() {
 
   useEffect(() => {
     fetchStandings();
+    // Auto-refresh every 2 minutes for live updates
+    const interval = setInterval(fetchStandings, 120000);
+    return () => clearInterval(interval);
   }, []);
 
   // Top 4 qualify, 5-12 repechaje zone (Liga MX format)
@@ -67,14 +73,22 @@ export default function Posiciones() {
               <p className="text-xs text-muted-foreground">Liga MX · Clausura 2026</p>
             </div>
           </div>
-          <button
-            onClick={fetchStandings}
-            disabled={loading}
-            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-            title="Actualizar"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            {hasLive && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-500/10 border border-red-500/30">
+                <Radio className="w-3 h-3 text-red-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-red-400 uppercase">En vivo</span>
+              </div>
+            )}
+            <button
+              onClick={fetchStandings}
+              disabled={loading}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+              title="Actualizar"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -124,6 +138,9 @@ export default function Posiciones() {
                             <img src={entry.team_badge} alt="" className="w-6 h-6 object-contain" />
                           )}
                           <span className="font-medium text-foreground truncate">{entry.team_name}</span>
+                          {entry.live_adjustment && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" title="Resultado en vivo" />
+                          )}
                         </div>
                       </td>
                       <td className="text-center py-3 px-1 text-muted-foreground">{entry.played}</td>
