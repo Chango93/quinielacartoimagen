@@ -19,6 +19,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Quiniela = lazy(() => import("./pages/Quiniela"));
 const Tabla = lazy(() => import("./pages/Tabla"));
+const Posiciones = lazy(() => import("./pages/Posiciones"));
 const Admin = lazy(() => import("./pages/Admin"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -57,6 +58,7 @@ const App = () => (
                     } 
                   />
                   <Route path="/tabla" element={<Tabla />} />
+                  <Route path="/posiciones" element={<Posiciones />} />
                   <Route 
                     path="/admin" 
                     element={

@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Home, Trophy, BarChart3, Settings, User } from 'lucide-react';
+import { Home, Trophy, BarChart3, Settings, User, TableProperties } from 'lucide-react';
 
 export default function MobileBottomNav() {
   const { user, isAdmin } = useAuth();
@@ -12,6 +12,7 @@ export default function MobileBottomNav() {
     { href: '/', label: 'Inicio', icon: Home },
     { href: '/quiniela', label: 'Quiniela', icon: Trophy },
     { href: '/tabla', label: 'Tabla', icon: BarChart3 },
+    { href: '/posiciones', label: 'Liga MX', icon: TableProperties },
   ];
 
   if (isAdmin) {

@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useAdminSimulation } from '@/lib/adminSimulation';
 import { Button } from '@/components/ui/button';
-import { Trophy, LogOut, Settings, User, LayoutDashboard, ChevronDown, Menu, Eye, EyeOff } from 'lucide-react';
+import { Trophy, LogOut, Settings, User, LayoutDashboard, ChevronDown, Menu, Eye, EyeOff, TableProperties } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ export default function Header() {
     { href: '/', label: 'Inicio', icon: LayoutDashboard },
     { href: '/quiniela', label: 'Mi Quiniela', icon: Trophy },
     { href: '/tabla', label: 'Tabla General', icon: Trophy },
+    { href: '/posiciones', label: 'Liga MX', icon: TableProperties },
   ];
 
   if (displayIsAdmin) {
