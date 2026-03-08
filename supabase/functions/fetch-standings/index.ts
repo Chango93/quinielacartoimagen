@@ -94,6 +94,7 @@ serve(async (req) => {
         .from('matches')
         .select('home_score, away_score, is_finished, home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)')
         .eq('matchday_id', matchdayResult.data.id)
+        .eq('is_finished', false)
         .not('home_score', 'is', null)
         .not('away_score', 'is', null);
 
