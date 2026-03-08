@@ -58,6 +58,7 @@ const App = () => (
                     } 
                   />
                   <Route path="/tabla" element={<Tabla />} />
+                  <Route path="/posiciones" element={<Posiciones />} />
                   <Route 
                     path="/admin" 
                     element={

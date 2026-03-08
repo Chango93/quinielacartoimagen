@@ -20,6 +20,7 @@ export default function Header() {
     { href: '/', label: 'Inicio', icon: LayoutDashboard },
     { href: '/quiniela', label: 'Mi Quiniela', icon: Trophy },
     { href: '/tabla', label: 'Tabla General', icon: Trophy },
+    { href: '/posiciones', label: 'Liga MX', icon: TableProperties },
   ];
 
   if (displayIsAdmin) {

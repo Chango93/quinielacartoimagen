@@ -12,6 +12,7 @@ export default function MobileBottomNav() {
     { href: '/', label: 'Inicio', icon: Home },
     { href: '/quiniela', label: 'Quiniela', icon: Trophy },
     { href: '/tabla', label: 'Tabla', icon: BarChart3 },
+    { href: '/posiciones', label: 'Liga MX', icon: TableProperties },
   ];
 
   if (isAdmin) {
