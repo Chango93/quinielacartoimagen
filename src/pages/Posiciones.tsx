@@ -23,6 +23,7 @@ export default function Posiciones() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [hasLive, setHasLive] = useState(false);
 
   const fetchStandings = async () => {
     setLoading(true);
