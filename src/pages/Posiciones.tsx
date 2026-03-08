@@ -48,6 +48,9 @@ export default function Posiciones() {
 
   useEffect(() => {
     fetchStandings();
+    // Auto-refresh every 2 minutes for live updates
+    const interval = setInterval(fetchStandings, 120000);
+    return () => clearInterval(interval);
   }, []);
 
   // Top 4 qualify, 5-12 repechaje zone (Liga MX format)
