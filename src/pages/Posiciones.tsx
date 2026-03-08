@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Trophy, RefreshCw, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { Trophy, RefreshCw, Radio } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface StandingEntry {
