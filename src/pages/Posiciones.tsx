@@ -33,6 +33,7 @@ export default function Posiciones() {
       if (fnError) throw fnError;
       if (data?.standings) {
         setStandings(data.standings);
+        setHasLive(data.has_live || false);
         setLastUpdated(new Date());
       } else {
         setError('No se pudieron obtener las posiciones');
