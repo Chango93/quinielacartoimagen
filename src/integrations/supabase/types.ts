@@ -41,6 +41,53 @@ export type Database = {
         }
         Relationships: []
       }
+      league_standings: {
+        Row: {
+          drawn: number
+          goals_against: number
+          goals_for: number
+          id: string
+          lost: number
+          played: number
+          points: number
+          team_id: string
+          updated_at: string
+          won: number
+        }
+        Insert: {
+          drawn?: number
+          goals_against?: number
+          goals_for?: number
+          id?: string
+          lost?: number
+          played?: number
+          points?: number
+          team_id: string
+          updated_at?: string
+          won?: number
+        }
+        Update: {
+          drawn?: number
+          goals_against?: number
+          goals_for?: number
+          id?: string
+          lost?: number
+          played?: number
+          points?: number
+          team_id?: string
+          updated_at?: string
+          won?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "league_standings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matchday_payments: {
         Row: {
           amount_cents: number
