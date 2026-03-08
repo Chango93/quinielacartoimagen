@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
-import { Home, Trophy, BarChart3, Settings, User } from 'lucide-react';
+import { Home, Trophy, BarChart3, Settings, User, TableProperties } from 'lucide-react';
 
 export default function MobileBottomNav() {
   const { user, isAdmin } = useAuth();
