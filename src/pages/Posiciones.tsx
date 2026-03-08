@@ -73,14 +73,22 @@ export default function Posiciones() {
               <p className="text-xs text-muted-foreground">Liga MX · Clausura 2026</p>
             </div>
           </div>
-          <button
-            onClick={fetchStandings}
-            disabled={loading}
-            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
-            title="Actualizar"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2">
+            {hasLive && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-red-500/10 border border-red-500/30">
+                <Radio className="w-3 h-3 text-red-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-red-400 uppercase">En vivo</span>
+              </div>
+            )}
+            <button
+              onClick={fetchStandings}
+              disabled={loading}
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+              title="Actualizar"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
 
         {error && (
