@@ -15,6 +15,7 @@ interface StandingEntry {
   goals_against: number;
   goal_difference: number;
   points: number;
+  live_adjustment: boolean;
 }
 
 export default function Posiciones() {
