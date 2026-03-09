@@ -182,23 +182,27 @@ export default function PositionEvolutionChart() {
           let changeFromTo = '';
           let prevPosition: number | null = null;
 
-          processedMatchdays.forEach(md => {
+          let prevMatchdayIndex = -1;
+
+          processedMatchdays.forEach((md, mdIndex) => {
             const posData = currentUserData.positions.get(md.id);
             if (posData) {
               if (posData.position < bestPosition) {
                 bestPosition = posData.position;
                 bestMatchday = md.name;
               }
-              if (prevPosition !== null) {
+              // Only compare consecutive matchdays where the user had data
+              if (prevPosition !== null && prevMatchdayIndex === mdIndex - 1) {
                 const change = posData.position - prevPosition; // positive = dropped, negative = climbed
                 if (Math.abs(change) > biggestChange) {
                   biggestChange = Math.abs(change);
                   biggestChangeRaw = change;
-                  const prevMd = processedMatchdays[processedMatchdays.indexOf(md) - 1];
+                  const prevMd = processedMatchdays[mdIndex - 1];
                   changeFromTo = `${prevMd?.shortName || ''} → ${md.shortName}`;
                 }
               }
               prevPosition = posData.position;
+              prevMatchdayIndex = mdIndex;
             }
           });
 
