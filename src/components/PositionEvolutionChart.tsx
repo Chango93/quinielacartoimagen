@@ -211,8 +211,8 @@ export default function PositionEvolutionChart() {
           setUserStats({
             bestPosition: bestPosition === Infinity ? 0 : bestPosition,
             bestMatchday,
-            worstDrop,
-            dropFromTo,
+            biggestChange: biggestChangeRaw,
+            changeFromTo,
             distanceToLeader: leaderCumulative - userCumulative
           });
         }
