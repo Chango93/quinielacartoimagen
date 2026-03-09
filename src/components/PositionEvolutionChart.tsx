@@ -57,8 +57,8 @@ export default function PositionEvolutionChart() {
   const [userStats, setUserStats] = useState<{
     bestPosition: number;
     bestMatchday: string;
-    worstDrop: number;
-    dropFromTo: string;
+    biggestChange: number; // positive = dropped, negative = climbed
+    changeFromTo: string;
     distanceToLeader: number;
   } | null>(null);
 
@@ -177,8 +177,9 @@ export default function PositionEvolutionChart() {
         if (currentUserData && currentUserData.positions.size > 0) {
           let bestPosition = Infinity;
           let bestMatchday = '';
-          let worstDrop = 0;
-          let dropFromTo = '';
+          let biggestChange = 0; // absolute biggest change
+          let biggestChangeRaw = 0; // signed value (positive = dropped positions)
+          let changeFromTo = '';
           let prevPosition: number | null = null;
 
           processedMatchdays.forEach(md => {
@@ -189,11 +190,12 @@ export default function PositionEvolutionChart() {
                 bestMatchday = md.name;
               }
               if (prevPosition !== null) {
-                const drop = posData.position - prevPosition;
-                if (drop > worstDrop) {
-                  worstDrop = drop;
+                const change = posData.position - prevPosition; // positive = dropped, negative = climbed
+                if (Math.abs(change) > biggestChange) {
+                  biggestChange = Math.abs(change);
+                  biggestChangeRaw = change;
                   const prevMd = processedMatchdays[processedMatchdays.indexOf(md) - 1];
-                  dropFromTo = `${prevMd?.shortName || ''} → ${md.shortName}`;
+                  changeFromTo = `${prevMd?.shortName || ''} → ${md.shortName}`;
                 }
               }
               prevPosition = posData.position;
@@ -209,8 +211,8 @@ export default function PositionEvolutionChart() {
           setUserStats({
             bestPosition: bestPosition === Infinity ? 0 : bestPosition,
             bestMatchday,
-            worstDrop,
-            dropFromTo,
+            biggestChange: biggestChangeRaw,
+            changeFromTo,
             distanceToLeader: leaderCumulative - userCumulative
           });
         }
@@ -530,16 +532,22 @@ export default function PositionEvolutionChart() {
                 </div>
               </div>
               
-              {userStats.worstDrop > 0 && (
+              {userStats.biggestChange !== 0 && (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <TrendingDown className="w-4 h-4 text-red-500" />
+                  {userStats.biggestChange > 0 ? (
+                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 text-green-500" />
+                  )}
                   <div>
-                    <span className="text-muted-foreground">Mayor caída:</span>
-                    <span className="ml-1 font-semibold text-foreground">
-                      -{userStats.worstDrop} pos
+                    <span className="text-muted-foreground">Mayor cambio:</span>
+                    <span className={`ml-1 font-semibold ${
+                      userStats.biggestChange > 0 ? 'text-red-400' : 'text-green-400'
+                    }`}>
+                      {userStats.biggestChange > 0 ? `-${userStats.biggestChange}` : `+${Math.abs(userStats.biggestChange)}`} pos
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      ({userStats.dropFromTo})
+                      ({userStats.changeFromTo})
                     </span>
                   </div>
                 </div>
