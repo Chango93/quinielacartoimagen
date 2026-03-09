@@ -57,8 +57,8 @@ export default function PositionEvolutionChart() {
   const [userStats, setUserStats] = useState<{
     bestPosition: number;
     bestMatchday: string;
-    worstDrop: number;
-    dropFromTo: string;
+    biggestChange: number; // positive = dropped, negative = climbed
+    changeFromTo: string;
     distanceToLeader: number;
   } | null>(null);
 
