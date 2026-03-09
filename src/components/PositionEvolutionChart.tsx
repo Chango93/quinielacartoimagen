@@ -177,8 +177,9 @@ export default function PositionEvolutionChart() {
         if (currentUserData && currentUserData.positions.size > 0) {
           let bestPosition = Infinity;
           let bestMatchday = '';
-          let worstDrop = 0;
-          let dropFromTo = '';
+          let biggestChange = 0; // absolute biggest change
+          let biggestChangeRaw = 0; // signed value (positive = dropped positions)
+          let changeFromTo = '';
           let prevPosition: number | null = null;
 
           processedMatchdays.forEach(md => {
@@ -189,11 +190,12 @@ export default function PositionEvolutionChart() {
                 bestMatchday = md.name;
               }
               if (prevPosition !== null) {
-                const drop = posData.position - prevPosition;
-                if (drop > worstDrop) {
-                  worstDrop = drop;
+                const change = posData.position - prevPosition; // positive = dropped, negative = climbed
+                if (Math.abs(change) > biggestChange) {
+                  biggestChange = Math.abs(change);
+                  biggestChangeRaw = change;
                   const prevMd = processedMatchdays[processedMatchdays.indexOf(md) - 1];
-                  dropFromTo = `${prevMd?.shortName || ''} → ${md.shortName}`;
+                  changeFromTo = `${prevMd?.shortName || ''} → ${md.shortName}`;
                 }
               }
               prevPosition = posData.position;
