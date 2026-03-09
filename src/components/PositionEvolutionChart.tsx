@@ -532,16 +532,22 @@ export default function PositionEvolutionChart() {
                 </div>
               </div>
               
-              {userStats.worstDrop > 0 && (
+              {userStats.biggestChange !== 0 && (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/30">
-                  <TrendingDown className="w-4 h-4 text-red-500" />
+                  {userStats.biggestChange > 0 ? (
+                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  ) : (
+                    <TrendingUp className="w-4 h-4 text-green-500" />
+                  )}
                   <div>
-                    <span className="text-muted-foreground">Mayor caída:</span>
-                    <span className="ml-1 font-semibold text-foreground">
-                      -{userStats.worstDrop} pos
+                    <span className="text-muted-foreground">Mayor cambio:</span>
+                    <span className={`ml-1 font-semibold ${
+                      userStats.biggestChange > 0 ? 'text-red-400' : 'text-green-400'
+                    }`}>
+                      {userStats.biggestChange > 0 ? `-${userStats.biggestChange}` : `+${Math.abs(userStats.biggestChange)}`} pos
                     </span>
                     <span className="text-xs text-muted-foreground ml-1">
-                      ({userStats.dropFromTo})
+                      ({userStats.changeFromTo})
                     </span>
                   </div>
                 </div>
